@@ -3,4 +3,5 @@ debug.log.1
 MessageCenter.log4j.properties 
 velocity.log 
 velocity.log.1
-/bin
+*.class
+bin/
