@@ -1,9 +1,12 @@
 package evacuacao;
 
+import sajas.core.Agent;
+import jade.core.Profile;
+import jade.core.ProfileImpl;
+import jade.wrapper.StaleProxyException;
 import repast.simphony.context.Context;
 import repast.simphony.context.space.grid.GridFactory;
 import repast.simphony.context.space.grid.GridFactoryFinder;
-import repast.simphony.dataLoader.ContextBuilder;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.parameter.Parameters;
 import repast.simphony.random.RandomHelper;
@@ -11,72 +14,59 @@ import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridBuilderParameters;
 import repast.simphony.space.grid.SimpleGridAdder;
 import repast.simphony.space.grid.WrapAroundBorders;
+import jade.core.AID;
+import sajas.sim.repasts.RepastSLauncher;
+import sajas.wrapper.ContainerController;
+import sajas.core.Runtime;
 
-public class JEvacuationBuilder implements ContextBuilder<Object> {
+public class RepastSEvacuationLauncher extends RepastSLauncher {
+	public static final boolean USE_RESULTS_COLLECTOR = true;
+	private ContainerController mainContainer;
+	private Context<Object> context;
+	private Grid<Object> grid;
+	
+	public static Agent getAgent(Context<?> context, AID aid) {
+		for(Object obj : context.getObjects(Agent.class)) {
+			if(((Agent) obj).getAID().equals(aid)) {
+				return (Agent) obj;
+			}
+		}
+		return null;
+	}
 
 	@Override
-	public Context<?> build(Context<Object> context) {
-		GridFactory gridFactory = GridFactoryFinder.createGridFactory(null);
-		Grid<Object> grid = gridFactory.createGrid("grid", context,
-				new GridBuilderParameters<Object>(new WrapAroundBorders(), new SimpleGridAdder<Object>(), true, 40, 25));
+	public String getName() {
+		return "Evacuation -- SAJaS RepastS";
+	}
 
+	@Override
+	protected void launchJADE() {
+		Runtime rt = Runtime.instance();
+		Profile p1 = new ProfileImpl();
+		mainContainer = rt.createMainContainer(p1);
+		launchAgents();
+	}
+	
+	private void launchAgents() {
+		AID resultsCollectorAID = null;
+		if(USE_RESULTS_COLLECTOR) {
+			// create results collector
+			//ResultsCollector resultsCollector = new ResultsCollector(N_CONSUMERS + N_CONSUMERS_FILTERING_PROVIDERS);
+			//mainContainer.acceptNewAgent("ResultsCollector", resultsCollector).start();
+			//resultsCollectorAID = resultsCollector.getAID();
+		}
 		Parameters params = RunEnvironment.getInstance().getParameters();
-
 		buildWalls(grid, context);
-
 		int humanCount = (Integer) params.getValue("human_count");
 		int securityCount = (Integer) params.getValue("security_count");
 		int doorsCount = (Integer) params.getValue("doors_count");
 		int radiusVision = (Integer) params.getValue("radius_vision");
 
 		generateExits(grid,context,doorsCount);
-		
 		createHumans(grid,context,humanCount,radiusVision);
-		
 		createSecurity(grid,context,securityCount);
-
-		return context;
 	}
-	
-	private void generateExits(Grid<Object> grid, Context<Object> context,int doorsCount){
-		while (doorsCount > 0) {
-			double chance = RandomHelper.nextDoubleFromTo(0,1);
-			int doorExitX = 0,doorExitY= 0;
-			//right wall
-			if(chance <= 0.33){
-				doorExitX = grid.getDimensions().getWidth() - 1;
-				doorExitY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
-			}
-			//top wall
-			else if(chance <= 0.66){
-				doorExitX = RandomHelper.nextIntFromTo(grid.getDimensions().getWidth() - 20, grid.getDimensions().getWidth() - 2);
-				doorExitY = grid.getDimensions().getHeight() - 1;
-			}
-			//bottom wall
-			else if(chance <= 1){
-				doorExitX =	RandomHelper.nextIntFromTo(grid.getDimensions().getWidth() - 20, grid.getDimensions().getWidth() - 2);
-				doorExitY = 0;
-			}
-			Door exitDoor = new Door(grid);
-			context.add(exitDoor);
-			grid.moveTo(exitDoor, doorExitX, doorExitY);
-			for (Object obj : grid.getObjectsAt(doorExitX, doorExitY)) {
-				if (obj instanceof Wall) {
-					context.remove(obj);
-				}
-				//if a door already exists at that location - try again
-				if (obj instanceof Door){
-					context.remove(exitDoor);
-					continue;
-				}
-			
-			}	
-			
-			doorsCount--;
 
-		}
-	}
-	
 	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision){
 		for (int i = 0; i < humanCount; i++) {
 			Human newHuman = new Human(grid, context,State.inRoom,Condition.healthy,1,radiusVision);
@@ -88,6 +78,11 @@ public class JEvacuationBuilder implements ContextBuilder<Object> {
 				startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
 			}
 			grid.moveTo(newHuman, startX, startY);
+			try {
+				mainContainer.acceptNewAgent("person" + i, newHuman).start();
+			} catch (StaleProxyException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -102,6 +97,11 @@ public class JEvacuationBuilder implements ContextBuilder<Object> {
 				startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
 			}
 			grid.moveTo(newSecurity, startX, startY);
+			try {
+				mainContainer.acceptNewAgent("security" + i, newSecurity).start();
+			} catch (StaleProxyException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -174,6 +174,45 @@ public class JEvacuationBuilder implements ContextBuilder<Object> {
 
 	}
 	
+	private void generateExits(Grid<Object> grid, Context<Object> context,int doorsCount){
+		while (doorsCount > 0) {
+			double chance = RandomHelper.nextDoubleFromTo(0,1);
+			int doorExitX = 0,doorExitY= 0;
+			//right wall
+			if(chance <= 0.33){
+				doorExitX = grid.getDimensions().getWidth() - 1;
+				doorExitY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
+			}
+			//top wall
+			else if(chance <= 0.66){
+				doorExitX = RandomHelper.nextIntFromTo(grid.getDimensions().getWidth() - 20, grid.getDimensions().getWidth() - 2);
+				doorExitY = grid.getDimensions().getHeight() - 1;
+			}
+			//bottom wall
+			else if(chance <= 1){
+				doorExitX =	RandomHelper.nextIntFromTo(grid.getDimensions().getWidth() - 20, grid.getDimensions().getWidth() - 2);
+				doorExitY = 0;
+			}
+			Door exitDoor = new Door(grid);
+			context.add(exitDoor);
+			grid.moveTo(exitDoor, doorExitX, doorExitY);
+			for (Object obj : grid.getObjectsAt(doorExitX, doorExitY)) {
+				if (obj instanceof Wall) {
+					context.remove(obj);
+				}
+				//if a door already exists at that location - try again
+				if (obj instanceof Door){
+					context.remove(exitDoor);
+					continue;
+				}
+			
+			}	
+			
+			doorsCount--;
+
+		}
+	}
+	
 	private boolean isValidPosition(int startX, int startY, Grid<Object> grid) {
 		if (startX < 0 || startY < 0)
 			return false;
@@ -187,6 +226,18 @@ public class JEvacuationBuilder implements ContextBuilder<Object> {
 			}
 		}
 		return true;
+	}
+	
+	@Override
+	public Context<?>build(Context<Object> context) {
+		// http://repast.sourceforge.net/docs/RepastJavaGettingStarted.pdf
+		
+		GridFactory gridFactory = GridFactoryFinder.createGridFactory(null);
+		Grid<Object> grid = gridFactory.createGrid("grid", context,
+				new GridBuilderParameters<Object>(new WrapAroundBorders(), new SimpleGridAdder<Object>(), true, 40, 25));
+		this.grid=grid;
+		this.context=context;
+		return super.build(this.context);
 	}
 
 }

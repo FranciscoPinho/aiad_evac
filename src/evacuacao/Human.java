@@ -3,6 +3,8 @@ package evacuacao;
 import java.util.ArrayList;
 import java.util.List;
 import graph.Graph;
+import sajas.core.Agent;
+import sajas.core.behaviours.SimpleBehaviour;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ScheduledMethod;
@@ -22,7 +24,7 @@ import repast.simphony.util.SimUtilities;
  enum Zones{
 	 topWall,bottomWall,RightWall,topRight,topLeft,bottomLeft,bottomRight,nowhere
  }
-public class Human {
+public class Human extends Agent{
 	private Grid<Object> grid;
 	private boolean moved;
 	private Context<Object> context;
@@ -45,81 +47,51 @@ public class Human {
 		this.visionRadius=visionRadius;
 	}
 
-	public Zones currentZone(int x, int y){
-		if(x>=20 && x<=22){
-			if(y>=1 && y<=3)
-				return Zones.bottomLeft;
-			if(y<=this.grid.getDimensions().getHeight()-2 && y>=this.grid.getDimensions().getHeight()-4)
-				return Zones.topLeft;
-		}
-		if(x>=25 && x<=33){
-			if(y>=1 && y<=3)
-				return Zones.bottomWall;
-			if(y>=this.grid.getDimensions().getHeight()-4 && y<=this.grid.getDimensions().getHeight()-2)
-				return Zones.topWall;
-		}
-		if(x>=this.grid.getDimensions().getWidth()-4 && x<=this.grid.getDimensions().getWidth()-2){
-			if(y>=1 && y<=3)
-				return Zones.bottomRight;
-			if(y>=this.grid.getDimensions().getHeight()-4 && y<=this.grid.getDimensions().getHeight()-2)
-				return Zones.topRight;
-			if(y>=6 && y<=18){
-				return Zones.RightWall;
-			}
-			
-		}	
-		return Zones.nowhere;
-	}
 	
-	@ScheduledMethod(start = 1, interval = 1)
-	public void step() {
-		GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid, myLocation(), Human.class, 1, 1);
-		List<GridCell<Human>> gridCells = nghCreator.getNeighborhood(true);
-		SimUtilities.shuffle(gridCells, RandomHelper.getUniform());
-		
-		if(myLocation().getX()>grid.getDimensions().getWidth() - 21 && this.state!=State.knowExit)
-			this.state= State.wandering;
-		//lookup in visionRadius to find exit or security guard
-		vision(myLocation());
-		
-		switch(this.state){
-		case inRoom:
-			moveTowards(myLocation());
-			break;
-		case wandering:
-			moveExplore(myLocation());
-			
-			break;
-		case knowExit:
-			moveToExit(myLocation());
-			break;
-		}
-		
-		if(checkDoorAtLocation(myLocation().getX(),myLocation().getY())){
-			System.out.println("Found Door -> " + myLocation().getX() + " : " + myLocation().getY());
-			context.remove(this);
-		}
-		
-		
+	@Override
+	public void setup() {
+		addBehaviour(new myBehaviour(this));
 	}
-	
-	private boolean checkDoorAtLocation(int x, int y){
-		List<Object> doors = new ArrayList<Object>();
-		for (Object obj : grid.getObjectsAt(x, y)) {
-			if (obj instanceof Door) {
-				doors.add(obj);
+	//@ScheduledMethod(start = 1, interval = 1)
+	class myBehaviour extends SimpleBehaviour {
+		private static final long serialVersionUID = 1L;
+		
+		public myBehaviour(Agent a){
+			super(a);
+		}
+
+		public void action(){
+			if(myLocation().getX()>grid.getDimensions().getWidth() - 21 && state!=State.knowExit)
+				state= State.wandering;
+			//lookup in visionRadius to find exit or security guard
+			vision(myLocation());
+			
+			switch(state){
+			case inRoom:
+				moveTowards(myLocation());
+				break;
+			case wandering:
+				moveExplore(myLocation());
+				
+				break;
+			case knowExit:
+				moveToExit(myLocation());
+				break;
 			}
 		}
 
-		if (doors.size() > 0) {
-			return true;
+		@Override
+		public boolean done() {
+			if(checkDoorAtLocation(myLocation().getX(),myLocation().getY())){
+				context.remove(this);
+				return true;
+			}
+			return false;
 		}
-		return false;
+		
 	}
 	
-	private GridPoint myLocation() {
-		return grid.getLocation(this);
-	}
+	
 	
 	/*
 	 * Functions as agent's "vision" detecting exits or security guards in a circle with radius of visionRadius parameter
@@ -202,6 +174,50 @@ public class Human {
 			}
 		}
 		return false;
+	}
+	
+	
+	private boolean checkDoorAtLocation(int x, int y){
+		List<Object> doors = new ArrayList<Object>();
+		for (Object obj : grid.getObjectsAt(x, y)) {
+			if (obj instanceof Door) {
+				doors.add(obj);
+			}
+		}
+
+		if (doors.size() > 0) {
+			return true;
+		}
+		return false;
+	}
+	private GridPoint myLocation() {
+
+		return grid.getLocation(this);
+	}
+	public Zones currentZone(int x, int y){
+		if(x>=20 && x<=22){
+			if(y>=1 && y<=3)
+				return Zones.bottomLeft;
+			if(y<=this.grid.getDimensions().getHeight()-2 && y>=this.grid.getDimensions().getHeight()-4)
+				return Zones.topLeft;
+		}
+		if(x>=25 && x<=33){
+			if(y>=1 && y<=3)
+				return Zones.bottomWall;
+			if(y>=this.grid.getDimensions().getHeight()-4 && y<=this.grid.getDimensions().getHeight()-2)
+				return Zones.topWall;
+		}
+		if(x>=this.grid.getDimensions().getWidth()-4 && x<=this.grid.getDimensions().getWidth()-2){
+			if(y>=1 && y<=3)
+				return Zones.bottomRight;
+			if(y>=this.grid.getDimensions().getHeight()-4 && y<=this.grid.getDimensions().getHeight()-2)
+				return Zones.topRight;
+			if(y>=6 && y<=18){
+				return Zones.RightWall;
+			}
+			
+		}	
+		return Zones.nowhere;
 	}
 	public void nextZone(Zones currentZone){
 		ArrayList<Zones> possibleZones = new ArrayList<Zones>();
@@ -329,8 +345,6 @@ public class Human {
 		
 		}
 	}
-
-
 	public void moveToZone(int i, int j){
 		switch(this.nextZone){
 		case RightWall:
@@ -465,7 +479,6 @@ public class Human {
 		
 		}
 	}
-	
 	public void moveExplore(GridPoint pt) {	
 		int i = pt.getX();
 		int j = pt.getY();
@@ -515,7 +528,6 @@ public class Human {
 		}
 		
 	}
-	
 	public void moveToExit(GridPoint pt) {
 		GridPoint nextPoint = getNextPoint(pt, new GridPoint(this.exitX,this.exitY));
 		if(nextPoint != null){
@@ -523,7 +535,6 @@ public class Human {
 		}
 		setMoved(true);
 	}
-
 	public void moveTowards(GridPoint pt) {
 		double distToExit = 999999;
 		int indexDoor = -1;
@@ -558,7 +569,6 @@ public class Human {
 		}
 		setMoved(true);
 	}
-	
 	private GridPoint getNextPoint(GridPoint pt, GridPoint location) {
 
 		ArrayList<Graph.Edge> lgraph = new ArrayList<Graph.Edge>();
@@ -663,7 +673,6 @@ public class Human {
 		//g.printAllPaths();
 		return nextPoint;
 	}
-
 	private boolean validPosition(int i, int j) {
 		if (i < 0 || j < 0)
 			return false;
@@ -678,7 +687,6 @@ public class Human {
 		}
 		return true;
 	}
-	
 	public boolean moveLeft(int i, int j){
 		if (validPosition(i-1, j)) {
 			grid.moveTo(this,i-1, j);
@@ -714,7 +722,6 @@ public class Human {
 	public boolean isMoved() {
 		return moved;
 	}
-
 	public void setMoved(boolean moved) {
 		this.moved = moved;
 	}

@@ -3,6 +3,7 @@ package evacuacao;
 import java.util.ArrayList;
 import java.util.List;
 
+import evacuacao.Human.myBehaviour;
 import graph.Graph;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
@@ -13,8 +14,10 @@ import repast.simphony.random.RandomHelper;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
 import repast.simphony.util.SimUtilities;
+import sajas.core.Agent;
+import sajas.core.behaviours.SimpleBehaviour;
 
-public class Security {
+public class Security extends Agent{
 	private Grid<Object> grid;
 	private boolean moved;
 	private Context<Object> context;
@@ -23,52 +26,73 @@ public class Security {
 		this.grid = grid;
 		this.context = context;
 	}
-
-	@ScheduledMethod(start = 1, interval = 1)
-	public void step() {
-		GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid, myLocation(), Human.class, 1, 1);
-		List<GridCell<Human>> gridCells = nghCreator.getNeighborhood(true);
-		SimUtilities.shuffle(gridCells, RandomHelper.getUniform());
+	@Override
+	public void setup() {
+		addBehaviour(new myBehaviour(this));
+	}
+	//@ScheduledMethod(start = 1, interval = 1)
+	class myBehaviour extends SimpleBehaviour {
+		private static final long serialVersionUID = 1L;
 		
-		
-		List<Human> humans = new ArrayList<Human>();
-		for (Object obj : grid.getObjects()) {
-			if (obj instanceof Human) {
-				humans.add((Human) obj);
-			}
-		}
-		
-		if(humans.size()==0)
-			moveTowards(myLocation());
-
-		List<Object> doors = new ArrayList<Object>();
-		for (Object obj : grid.getObjectsAt(myLocation().getX(), myLocation().getY())) {
-			if (obj instanceof Door) {
-				doors.add(obj);
-			}
+		public myBehaviour(Agent a){
+			super(a);
 		}
 
-		if (doors.size() > 0) {
-			System.out.println("Security Found Door -> " + myLocation().getX() + " : " + myLocation().getY());
-			context.remove(this);
-			List<Security> people = new ArrayList<Security>();
+		public void action(){
+			GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid, myLocation(), Human.class, 1, 1);
+			List<GridCell<Human>> gridCells = nghCreator.getNeighborhood(true);
+			SimUtilities.shuffle(gridCells, RandomHelper.getUniform());
+			
+			
+			List<Human> humans = new ArrayList<Human>();
 			for (Object obj : grid.getObjects()) {
-				if (obj instanceof Security) {
-					people.add((Security) obj);
+				if (obj instanceof Human) {
+					humans.add((Human) obj);
 				}
 			}
-			//Parameters params = RunEnvironment.getInstance().getParameters();
-			//int securityCount = (Integer) params.getValue("security_count");
-			if (people.size() == 0)
-				RunEnvironment.getInstance().endRun();
+			
+			if(humans.size()==0)
+				moveTowards(myLocation());
+			System.out.println("At action "+humans.size());
 		}
 
+		@Override
+		public boolean done() {
+			List<Object> doors = new ArrayList<Object>();
+			for (Object obj : grid.getObjectsAt(myLocation().getX(), myLocation().getY())) {
+				if (obj instanceof Door) {
+					doors.add(obj);
+				}
+			}
+
+			if (doors.size() > 0) {
+				System.out.println("Security Found Door -> " + myLocation().getX() + " : " + myLocation().getY());
+				context.remove(this);
+				List<Security> people = new ArrayList<Security>();
+				for (Object obj : grid.getObjects()) {
+					if (obj instanceof Security) {
+						people.add((Security) obj);
+					}
+				}
+				//Parameters params = RunEnvironment.getInstance().getParameters();
+				//int securityCount = (Integer) params.getValue("security_count");
+				if (people.size() == 0){
+					RunEnvironment.getInstance().endRun();
+					return true;
+				}
+				else return true;
+			}
+			return false;
+		}
+		
 	}
+		
+	
+	//@ScheduledMethod(start = 1, interval = 1)
 
 	private GridPoint myLocation() {
 		return grid.getLocation(this);
 	}
-	
 	public void moveTowards(GridPoint pt) {
 		double distToExit = 999999;
 		int indexDoor = -1;
@@ -103,7 +127,6 @@ public class Security {
 		}
 		setMoved(true);
 	}
-
 	private GridPoint getNextPoint(GridPoint pt, GridPoint location) {
 
 		ArrayList<Graph.Edge> lgraph = new ArrayList<Graph.Edge>();
@@ -204,11 +227,8 @@ public class Security {
 		Graph g = new Graph(GRAPH);
 		g.dijkstra(START);
 		GridPoint nextPoint = g.getNextPoint(START, END);
-		//g.printPath(END);
-		//g.printAllPaths();
 		return nextPoint;
 	}
-
 	private boolean validPosition(int i, int j) {
 		if (i < 0 || j < 0)
 			return false;
@@ -223,11 +243,9 @@ public class Security {
 		}
 		return true;
 	}
-
 	public boolean isMoved() {
 		return moved;
 	}
-
 	public void setMoved(boolean moved) {
 		this.moved = moved;
 	}
