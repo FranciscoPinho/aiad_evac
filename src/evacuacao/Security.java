@@ -3,8 +3,11 @@ package evacuacao;
 import java.util.ArrayList;
 import java.util.List;
 
-import evacuacao.Human.myBehaviour;
+import evacuacao.ontology.EvacuationOntology;
 import graph.Graph;
+import jade.content.lang.Codec;
+import jade.content.lang.sl.SLCodec;
+import jade.content.onto.Ontology;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ScheduledMethod;
@@ -13,35 +16,50 @@ import repast.simphony.query.space.grid.GridCellNgh;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
+import repast.simphony.util.ContextUtils;
 import repast.simphony.util.SimUtilities;
 import sajas.core.Agent;
 import sajas.core.behaviours.SimpleBehaviour;
+
+
 
 public class Security extends Agent{
 	private Grid<Object> grid;
 	private boolean moved;
 	private Context<Object> context;
+	private Codec codec;
+	private Ontology evacOntology;
 
 	public Security(Grid<Object> grid, Context<Object> context) {
+		super();
 		this.grid = grid;
 		this.context = context;
 	}
+	@SuppressWarnings("unchecked")
 	@Override
 	public void setup() {
+		// register language and ontology
+		codec = new SLCodec();
+		evacOntology = EvacuationOntology.getInstance();
+		getContentManager().registerLanguage(codec);
+		getContentManager().registerOntology(evacOntology);
 		addBehaviour(new myBehaviour(this));
+
 	}
-	//@ScheduledMethod(start = 1, interval = 1)
+
 	class myBehaviour extends SimpleBehaviour {
 		private static final long serialVersionUID = 1L;
 		
 		public myBehaviour(Agent a){
 			super(a);
 		}
-
+	
 		public void action(){
-			GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid, myLocation(), Human.class, 1, 1);
+			
+			/*GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid, myLocation(), Human.class, 1, 1);
 			List<GridCell<Human>> gridCells = nghCreator.getNeighborhood(true);
-			SimUtilities.shuffle(gridCells, RandomHelper.getUniform());
+			SimUtilities.shuffle(gridCells, RandomHelper.getUniform());*/
+	
 			
 			
 			List<Human> humans = new ArrayList<Human>();
@@ -53,7 +71,6 @@ public class Security extends Agent{
 			
 			if(humans.size()==0)
 				moveTowards(myLocation());
-			System.out.println("At action "+humans.size());
 		}
 
 		@Override
@@ -67,7 +84,7 @@ public class Security extends Agent{
 
 			if (doors.size() > 0) {
 				System.out.println("Security Found Door -> " + myLocation().getX() + " : " + myLocation().getY());
-				context.remove(this);
+				context.remove(this.myAgent);
 				List<Security> people = new ArrayList<Security>();
 				for (Object obj : grid.getObjects()) {
 					if (obj instanceof Security) {
@@ -87,9 +104,6 @@ public class Security extends Agent{
 		
 	}
 		
-	
-	//@ScheduledMethod(start = 1, interval = 1)
-
 	private GridPoint myLocation() {
 		return grid.getLocation(this);
 	}

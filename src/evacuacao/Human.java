@@ -2,8 +2,19 @@ package evacuacao;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import evacuacao.ontology.EvacuationOntology;
+import evacuacao.ontology.ExitRequest;
 import graph.Graph;
+import jade.content.lang.Codec;
+import jade.content.lang.Codec.CodecException;
+import jade.content.lang.sl.SLCodec;
+import jade.content.onto.Ontology;
+import jade.content.onto.OntologyException;
+import sajas.core.AID;
+import jade.lang.acl.ACLMessage;
 import sajas.core.Agent;
+import sajas.core.behaviours.OneShotBehaviour;
 import sajas.core.behaviours.SimpleBehaviour;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
@@ -37,8 +48,14 @@ public class Human extends Agent{
 	private int visionRadius;
 	private int exitX;
 	private int exitY;
+	private AID securityAID = null;
+	private Codec codec;
+	private Ontology evacOntology;
+	
+	protected ACLMessage myCfp;
 	
 	public Human(Grid<Object> grid, Context<Object> context,State state,Condition condition,float altruism, int visionRadius) {
+		super();
 		this.grid = grid;
 		this.context=context;
 		this.state=state;
@@ -50,21 +67,29 @@ public class Human extends Agent{
 	
 	@Override
 	public void setup() {
-		addBehaviour(new myBehaviour(this));
+		// register language and ontology
+		codec = new SLCodec();
+		evacOntology = EvacuationOntology.getInstance();
+		getContentManager().registerLanguage(codec);
+		getContentManager().registerOntology(evacOntology);
+		
+		addBehaviour(new movementBehaviour(this));
+		addBehaviour(new queryDoorCoordinates(this));
 	}
-	//@ScheduledMethod(start = 1, interval = 1)
-	class myBehaviour extends SimpleBehaviour {
+	
+	class movementBehaviour extends SimpleBehaviour {
 		private static final long serialVersionUID = 1L;
 		
-		public myBehaviour(Agent a){
+		public movementBehaviour(Agent a){
 			super(a);
 		}
-
+		
 		public void action(){
 			if(myLocation().getX()>grid.getDimensions().getWidth() - 21 && state!=State.knowExit)
 				state= State.wandering;
 			//lookup in visionRadius to find exit or security guard
-			vision(myLocation());
+			if(state!=State.knowExit)
+				vision(myLocation());
 			
 			switch(state){
 			case inRoom:
@@ -72,7 +97,6 @@ public class Human extends Agent{
 				break;
 			case wandering:
 				moveExplore(myLocation());
-				
 				break;
 			case knowExit:
 				moveToExit(myLocation());
@@ -83,14 +107,38 @@ public class Human extends Agent{
 		@Override
 		public boolean done() {
 			if(checkDoorAtLocation(myLocation().getX(),myLocation().getY())){
-				context.remove(this);
+				context.remove(this.myAgent);
 				return true;
 			}
 			return false;
 		}
 		
 	}
-	
+	class queryDoorCoordinates extends SimpleBehaviour {
+		private static final long serialVersionUID = 1L;
+		
+		public queryDoorCoordinates(Agent a){
+			super(a);
+		}
+		
+		public void action(){
+			if(securityAID!=null){
+				ExitRequest req = new ExitRequest();
+				ACLMessage msgSend = new ACLMessage(ACLMessage.QUERY_REF);
+				msgSend.addReceiver(securityAID);
+				msgSend.setContent(req.getRequest());
+				//System.out.println("SENT MESSAGE TO: "+securityAID.toString() + " - " + msgSend.getContent());
+				msgSend.setLanguage(codec.getName());
+				msgSend.setOntology(evacOntology.getName());
+				// Send message
+				send(msgSend);
+			}
+		}
+		@Override
+		public boolean done() {
+			return false;
+		}
+	}
 	
 	
 	/*
@@ -107,7 +155,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i,j+iter)!=null)
+					return true;
 			}
 			if (validPosition(i + iter, j + iter)) {
 				if(checkDoorAtLocation(i + iter, j + iter)){
@@ -116,7 +165,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i+iter,j+iter)!=null)
+					return true;
 			}
 			if (validPosition(i + iter, j)) {
 				if(checkDoorAtLocation(i+iter, j)){
@@ -125,7 +175,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i+iter,j)!=null)
+					return true;
 			}
 			if (validPosition(i, j - iter)) {
 				if(checkDoorAtLocation(i, j - iter)){
@@ -134,7 +185,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i, j - iter)!=null)
+					return true;
 			}
 			if (validPosition(i + iter, j - iter)) {
 				if(checkDoorAtLocation(i + iter, j - iter)){
@@ -143,7 +195,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i+iter, j - iter)!=null)
+					return true;
 			}
 			if (validPosition(i - iter, j)) {
 				if(checkDoorAtLocation(i - iter, j)){
@@ -152,7 +205,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i-iter, j)!=null)
+					return true;
 			}
 			if (validPosition(i - iter, j - iter)) {
 				if(checkDoorAtLocation(i - iter, j - iter)){
@@ -161,7 +215,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i-iter, j - iter)!=null)
+					return true;
 			}
 			if (validPosition(i - iter, j + iter)) {
 				if(checkDoorAtLocation(i - iter, j + iter)){
@@ -170,7 +225,8 @@ public class Human extends Agent{
 					state=State.knowExit;
 					return true;
 				}
-				//check security guard and ask for exit location
+				if(checkSecurityAtLocation(i-iter, j + iter)!=null)
+					return true;
 			}
 		}
 		return false;
@@ -190,6 +246,22 @@ public class Human extends Agent{
 		}
 		return false;
 	}
+	
+	private AID checkSecurityAtLocation(int x, int y){
+		List<Object> security = new ArrayList<Object>();
+		for (Object obj : grid.getObjectsAt(x, y)) {
+			if (obj instanceof Security) {
+				security.add(obj);
+			}
+		}
+
+		if (security.size() > 0) {
+			this.securityAID = (AID) ((Security) security.get(0)).getAID();
+			return this.securityAID;
+		}
+		return null;
+	}
+	
 	private GridPoint myLocation() {
 
 		return grid.getLocation(this);
