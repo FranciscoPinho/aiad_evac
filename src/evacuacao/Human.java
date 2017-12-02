@@ -5,7 +5,11 @@ import java.util.List;
 
 import evacuacao.ontology.EvacuationOntology;
 import evacuacao.ontology.ExitRequest;
+import evacuacao.ontology.RunToExit;
 import graph.Graph;
+import jade.content.AgentAction;
+import jade.content.onto.basic.Action;
+import jade.content.ContentElement;
 import jade.content.lang.Codec;
 import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
@@ -13,7 +17,9 @@ import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
 import sajas.core.AID;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import sajas.core.Agent;
+import sajas.core.behaviours.CyclicBehaviour;
 import sajas.core.behaviours.OneShotBehaviour;
 import sajas.core.behaviours.SimpleBehaviour;
 import repast.simphony.context.Context;
@@ -75,6 +81,7 @@ public class Human extends Agent{
 		
 		addBehaviour(new movementBehaviour(this));
 		addBehaviour(new queryDoorCoordinates(this));
+		addBehaviour(new receiveMessages(this));
 	}
 	
 	class movementBehaviour extends SimpleBehaviour {
@@ -114,7 +121,8 @@ public class Human extends Agent{
 		}
 		
 	}
-	class queryDoorCoordinates extends SimpleBehaviour {
+	
+	class queryDoorCoordinates extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 		
 		public queryDoorCoordinates(Agent a){
@@ -124,7 +132,7 @@ public class Human extends Agent{
 		public void action(){
 			if(securityAID!=null){
 				ExitRequest req = new ExitRequest();
-				ACLMessage msgSend = new ACLMessage(ACLMessage.QUERY_REF);
+				ACLMessage msgSend = new ACLMessage(ACLMessage.REQUEST);
 				msgSend.addReceiver(securityAID);
 				msgSend.setContent(req.getRequest());
 				//System.out.println("SENT MESSAGE TO: "+securityAID.toString() + " - " + msgSend.getContent());
@@ -134,13 +142,52 @@ public class Human extends Agent{
 				send(msgSend);
 			}
 		}
-		@Override
-		public boolean done() {
-			return false;
-		}
 	}
 	
+	class receiveMessages extends CyclicBehaviour {
+		private static final long serialVersionUID = 1L;
+		
+		public receiveMessages(Agent a){
+			super(a);
+		}
+		
+		public void action(){
+		   ACLMessage msg = receive();
+	       if (msg != null) { 
+		       try {
+		         ContentElement content = getContentManager().extractContent(msg);
+		         AgentAction action = (AgentAction)((Action)content).getAction();
+		         switch (msg.getPerformative()) 
+		         {     
+			         case (ACLMessage.REQUEST):
+			            if (action instanceof RunToExit)
+			                addBehaviour(new handleExitInfo(myAgent, (RunToExit)action));
+			         	//if (action instanceof HelpRequest)
+			         		//addBehaviour(new handleHelpRequest(myAgent,(HelpRequest)action));
+			            break;
+		         }
+		       }
+		        catch(Exception ex) { ex.printStackTrace(); }
+	       }
+		}
+	 }
 	
+	class handleExitInfo extends OneShotBehaviour {
+		private static final long serialVersionUID = 1L;
+		
+		RunToExit action;
+		public handleExitInfo(Agent a,RunToExit action){
+			super(a);
+			this.action=action;
+		}
+		
+		public void action(){
+			exitX=action.getX();
+			exitY=action.getY();
+			state=State.knowExit;
+			//System.out.println(action.getMessage());
+		}
+	 }
 	/*
 	 * Functions as agent's "vision" detecting exits or security guards in a circle with radius of visionRadius parameter
 	 */
@@ -256,8 +303,8 @@ public class Human extends Agent{
 		}
 
 		if (security.size() > 0) {
-			this.securityAID = (AID) ((Security) security.get(0)).getAID();
-			return this.securityAID;
+			securityAID = (AID) ((Security) security.get(0)).getAID();
+			return securityAID;
 		}
 		return null;
 	}

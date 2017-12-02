@@ -4,10 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import evacuacao.ontology.EvacuationOntology;
+import evacuacao.ontology.ExitRequest;
+import evacuacao.ontology.RunToExit;
 import graph.Graph;
 import jade.content.lang.Codec;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
+import jade.content.onto.basic.Action;
+import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ScheduledMethod;
@@ -19,6 +24,7 @@ import repast.simphony.space.grid.GridPoint;
 import repast.simphony.util.ContextUtils;
 import repast.simphony.util.SimUtilities;
 import sajas.core.Agent;
+import sajas.core.behaviours.CyclicBehaviour;
 import sajas.core.behaviours.SimpleBehaviour;
 
 
@@ -26,6 +32,7 @@ import sajas.core.behaviours.SimpleBehaviour;
 public class Security extends Agent{
 	private Grid<Object> grid;
 	private boolean moved;
+	private int closestExitX,closestExitY=0;
 	private Context<Object> context;
 	private Codec codec;
 	private Ontology evacOntology;
@@ -43,14 +50,15 @@ public class Security extends Agent{
 		evacOntology = EvacuationOntology.getInstance();
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(evacOntology);
-		addBehaviour(new myBehaviour(this));
+		addBehaviour(new movementBehaviour(this));
+		addBehaviour(new answerDoorCoordinateRequests(this));
 
 	}
 
-	class myBehaviour extends SimpleBehaviour {
+	class movementBehaviour extends SimpleBehaviour {
 		private static final long serialVersionUID = 1L;
 		
-		public myBehaviour(Agent a){
+		public movementBehaviour(Agent a){
 			super(a);
 		}
 	
@@ -103,7 +111,44 @@ public class Security extends Agent{
 		}
 		
 	}
+	
+	class answerDoorCoordinateRequests extends CyclicBehaviour {
+		private static final long serialVersionUID = 1L;
 		
+		private MessageTemplate template = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.REQUEST)
+																,MessageTemplate.MatchOntology(evacOntology.getName()));
+		
+		public answerDoorCoordinateRequests(Agent a){
+			super(a);
+		}
+	
+		public void action(){
+			
+			/*GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid, myLocation(), Human.class, 1, 1);
+			List<GridCell<Human>> gridCells = nghCreator.getNeighborhood(true);
+			SimUtilities.shuffle(gridCells, RandomHelper.getUniform());*/
+			ACLMessage msg = receive(template);
+			if(msg!=null){
+				if(msg.getContent().equals(new ExitRequest().getRequest())){
+					if(closestExitX!=0 && closestExitY!=0){
+						ACLMessage reply = new ACLMessage(ACLMessage.REQUEST);
+						reply.setOntology(evacOntology.getName());
+						reply.setLanguage(codec.getName());
+						try {
+							getContentManager().fillContent(reply, new Action(msg.getSender(), new RunToExit(closestExitX,closestExitY)));
+							reply.addReceiver(msg.getSender());
+							send(reply);
+						}
+						catch (Exception ex) { 
+							ex.printStackTrace(); 
+						}
+					}
+				}		
+			}	
+		}
+		
+	}
+	
 	private GridPoint myLocation() {
 		return grid.getLocation(this);
 	}
@@ -132,7 +177,8 @@ public class Security extends Agent{
 
 		if (indexDoor > -1) {
 			// Go To shortest Possible Direction
-
+			closestExitX=doors.get(indexDoor).getLocation().getX();
+			closestExitY=doors.get(indexDoor).getLocation().getY();
 			GridPoint nextPoint = getNextPoint(pt, doors.get(indexDoor).getLocation());
 			if(nextPoint != null){
 				grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
