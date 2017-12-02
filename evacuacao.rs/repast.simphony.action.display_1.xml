@@ -18,6 +18,10 @@
       <string>evacuacao.Security</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
+    <entry>
+      <string>evacuacao.Fire</string>
+      <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
+    </entry>
   </styles>
   <editedStyles>
     <entry>
@@ -36,6 +40,10 @@
       <string>evacuacao.Security</string>
       <string>evacuacao.Security.style_2.xml</string>
     </entry>
+    <entry>
+      <string>evacuacao.Fire</string>
+      <string>evacuacao.Fire.style_1.xml</string>
+    </entry>
   </editedStyles>
   <netStyles/>
   <editedNetStyles/>
@@ -47,7 +55,7 @@
     <pType>LAST</pType>
     <duration>-1.0</duration>
     <frequency>REPEAT</frequency>
-    <hashCode>-168485746</hashCode>
+    <hashCode>-1671368256</hashCode>
   </schedParams>
   <layoutClassName>foo.bar.baz</layoutClassName>
   <layoutProjection>grid</layoutProjection>
@@ -55,19 +63,23 @@
   <layerOrder>
     <entry>
       <string>evacuacao.Door</string>
-      <int>3</int>
+      <int>4</int>
     </entry>
     <entry>
       <string>evacuacao.Wall</string>
-      <int>2</int>
+      <int>3</int>
     </entry>
     <entry>
       <string>evacuacao.Human</string>
-      <int>0</int>
+      <int>1</int>
     </entry>
     <entry>
       <string>evacuacao.Security</string>
-      <int>1</int>
+      <int>2</int>
+    </entry>
+    <entry>
+      <string>evacuacao.Fire</string>
+      <int>0</int>
     </entry>
   </layerOrder>
   <projections>

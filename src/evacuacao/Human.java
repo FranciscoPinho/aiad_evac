@@ -11,27 +11,20 @@ import jade.content.AgentAction;
 import jade.content.onto.basic.Action;
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
-import jade.content.lang.Codec.CodecException;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.Ontology;
-import jade.content.onto.OntologyException;
 import sajas.core.AID;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
 import sajas.core.Agent;
 import sajas.core.behaviours.CyclicBehaviour;
 import sajas.core.behaviours.OneShotBehaviour;
 import sajas.core.behaviours.SimpleBehaviour;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
-import repast.simphony.engine.schedule.ScheduledMethod;
-import repast.simphony.parameter.Parameters;
-import repast.simphony.query.space.grid.GridCell;
-import repast.simphony.query.space.grid.GridCellNgh;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
-import repast.simphony.util.SimUtilities;
+
  enum State {
     inRoom,wandering,knowExit 
  }
@@ -57,9 +50,8 @@ public class Human extends Agent{
 	private AID securityAID = null;
 	private Codec codec;
 	private Ontology evacOntology;
-	
-	protected ACLMessage myCfp;
-	
+	private int dead = 0;
+
 	public Human(Grid<Object> grid, Context<Object> context,State state,Condition condition,float altruism, int visionRadius) {
 		super();
 		this.grid = grid;
@@ -81,7 +73,7 @@ public class Human extends Agent{
 		
 		addBehaviour(new movementBehaviour(this));
 		addBehaviour(new queryDoorCoordinates(this));
-		addBehaviour(new receiveMessages(this));
+		addBehaviour(new receiveRequests(this));
 	}
 	
 	class movementBehaviour extends SimpleBehaviour {
@@ -92,6 +84,8 @@ public class Human extends Agent{
 		}
 		
 		public void action(){
+			// System.out.println("Movement at tick: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+			
 			if(myLocation().getX()>grid.getDimensions().getWidth() - 21 && state!=State.knowExit)
 				state= State.wandering;
 			//lookup in visionRadius to find exit or security guard
@@ -113,10 +107,19 @@ public class Human extends Agent{
 
 		@Override
 		public boolean done() {
+			List<Agent> people = new ArrayList<Agent>();
 			if(checkDoorAtLocation(myLocation().getX(),myLocation().getY())){
 				context.remove(this.myAgent);
+				isSimulationOver();
 				return true;
 			}
+			if(checkFireAtLocation(myLocation().getX(),myLocation().getY())){
+				dead=1;
+				context.remove(this.myAgent);
+				isSimulationOver();
+				return true;
+			}
+			
 			return false;
 		}
 		
@@ -130,6 +133,7 @@ public class Human extends Agent{
 		}
 		
 		public void action(){
+			// Current Tick
 			if(securityAID!=null){
 				ExitRequest req = new ExitRequest();
 				ACLMessage msgSend = new ACLMessage(ACLMessage.REQUEST);
@@ -144,10 +148,10 @@ public class Human extends Agent{
 		}
 	}
 	
-	class receiveMessages extends CyclicBehaviour {
+	class receiveRequests extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 		
-		public receiveMessages(Agent a){
+		public receiveRequests(Agent a){
 			super(a);
 		}
 		
@@ -188,6 +192,7 @@ public class Human extends Agent{
 			//System.out.println(action.getMessage());
 		}
 	 }
+	
 	/*
 	 * Functions as agent's "vision" detecting exits or security guards in a circle with radius of visionRadius parameter
 	 */
@@ -204,6 +209,9 @@ public class Human extends Agent{
 				}
 				if(checkSecurityAtLocation(i,j+iter)!=null)
 					return true;
+				//if(this.fireInjureRadius<=iter)
+					//if(checkFireAtLocation(i,j+iter)!=null)
+						//condition=Condition.injured;
 			}
 			if (validPosition(i + iter, j + iter)) {
 				if(checkDoorAtLocation(i + iter, j + iter)){
@@ -279,6 +287,17 @@ public class Human extends Agent{
 		return false;
 	}
 	
+	private void isSimulationOver(){
+		List<Agent> people = new ArrayList<Agent>();
+		for (Object obj : grid.getObjects()) {
+			if (obj instanceof Security || obj instanceof Human) {
+				people.add((Security) obj);
+			}
+		}
+		if (people.size() == 0){
+			RunEnvironment.getInstance().endRun();
+		}
+	}
 	
 	private boolean checkDoorAtLocation(int x, int y){
 		List<Object> doors = new ArrayList<Object>();
@@ -289,6 +308,19 @@ public class Human extends Agent{
 		}
 
 		if (doors.size() > 0) {
+			return true;
+		}
+		return false;
+	}
+	private boolean checkFireAtLocation(int x, int y){
+		List<Object> fires = new ArrayList<Object>();
+		for (Object obj : grid.getObjectsAt(x, y)) {
+			if (obj instanceof Fire) {
+				fires.add(obj);
+			}
+		}
+
+		if (fires.size() > 0) {
 			return true;
 		}
 		return false;

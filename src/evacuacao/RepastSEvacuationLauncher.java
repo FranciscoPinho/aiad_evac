@@ -61,10 +61,12 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		int securityCount = (Integer) params.getValue("security_count");
 		int doorsCount = (Integer) params.getValue("doors_count");
 		int radiusVision = (Integer) params.getValue("radius_vision");
+		int prob = (Integer) params.getValue("propagation_prob");
 
 		generateExits(grid,context,doorsCount);
 		createHumans(grid,context,humanCount,radiusVision);
 		createSecurity(grid,context,securityCount);
+		startAccident(grid,context,0,0,prob);
 	}
 
 	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision){
@@ -84,6 +86,16 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	private void startAccident(Grid<Object> grid, Context<Object> context,int x,int y,int propagationProb){
+			int startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
+			int startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
+			while (!isValidPosition(startX, startY, grid)) {
+				startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
+				startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
+			}
+			new Fire(grid,context,startX,startY,propagationProb);
 	}
 	
 	private void createSecurity(Grid<Object> grid, Context<Object> context, int securityCount){

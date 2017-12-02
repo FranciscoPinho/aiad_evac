@@ -15,4 +15,7 @@
 	<parameter name="radius_vision" displayName="Vision Radius" type="int"
 		defaultValue="3" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
+	<parameter name="propagation_prob" displayName="Propagation Probability" type="int"
+		defaultValue="25" isReadOnly="false"
+		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 </parameters>

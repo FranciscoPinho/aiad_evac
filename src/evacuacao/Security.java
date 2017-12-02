@@ -15,14 +15,8 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
-import repast.simphony.engine.schedule.ScheduledMethod;
-import repast.simphony.query.space.grid.GridCell;
-import repast.simphony.query.space.grid.GridCellNgh;
-import repast.simphony.random.RandomHelper;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
-import repast.simphony.util.ContextUtils;
-import repast.simphony.util.SimUtilities;
 import sajas.core.Agent;
 import sajas.core.behaviours.CyclicBehaviour;
 import sajas.core.behaviours.SimpleBehaviour;
@@ -36,6 +30,7 @@ public class Security extends Agent{
 	private Context<Object> context;
 	private Codec codec;
 	private Ontology evacOntology;
+	int dead = 0;
 
 	public Security(Grid<Object> grid, Context<Object> context) {
 		super();
@@ -52,7 +47,6 @@ public class Security extends Agent{
 		getContentManager().registerOntology(evacOntology);
 		addBehaviour(new movementBehaviour(this));
 		addBehaviour(new answerDoorCoordinateRequests(this));
-
 	}
 
 	class movementBehaviour extends SimpleBehaviour {
@@ -83,30 +77,19 @@ public class Security extends Agent{
 
 		@Override
 		public boolean done() {
-			List<Object> doors = new ArrayList<Object>();
-			for (Object obj : grid.getObjectsAt(myLocation().getX(), myLocation().getY())) {
-				if (obj instanceof Door) {
-					doors.add(obj);
-				}
-			}
-
-			if (doors.size() > 0) {
-				System.out.println("Security Found Door -> " + myLocation().getX() + " : " + myLocation().getY());
+			List<Agent> people = new ArrayList<Agent>();
+			if(checkDoorAtLocation(myLocation().getX(),myLocation().getY())){
 				context.remove(this.myAgent);
-				List<Security> people = new ArrayList<Security>();
-				for (Object obj : grid.getObjects()) {
-					if (obj instanceof Security) {
-						people.add((Security) obj);
-					}
-				}
-				//Parameters params = RunEnvironment.getInstance().getParameters();
-				//int securityCount = (Integer) params.getValue("security_count");
-				if (people.size() == 0){
-					RunEnvironment.getInstance().endRun();
-					return true;
-				}
-				else return true;
+				isSimulationOver();
+				return true;
 			}
+			if(checkFireAtLocation(myLocation().getX(),myLocation().getY())){
+				dead=1;
+				context.remove(this.myAgent);
+				isSimulationOver();
+				return true;
+			}
+			
 			return false;
 		}
 		
@@ -148,7 +131,43 @@ public class Security extends Agent{
 		}
 		
 	}
-	
+	private void isSimulationOver(){
+		List<Agent> people = new ArrayList<Agent>();
+		for (Object obj : grid.getObjects()) {
+			if (obj instanceof Security || obj instanceof Human) {
+				people.add((Security) obj);
+			}
+		}
+		if (people.size() == 0){
+			RunEnvironment.getInstance().endRun();
+		}
+	}
+	private boolean checkDoorAtLocation(int x, int y){
+		List<Object> doors = new ArrayList<Object>();
+		for (Object obj : grid.getObjectsAt(x, y)) {
+			if (obj instanceof Door) {
+				doors.add(obj);
+			}
+		}
+
+		if (doors.size() > 0) {
+			return true;
+		}
+		return false;
+	}
+	private boolean checkFireAtLocation(int x, int y){
+		List<Object> fires = new ArrayList<Object>();
+		for (Object obj : grid.getObjectsAt(x, y)) {
+			if (obj instanceof Fire) {
+				fires.add(obj);
+			}
+		}
+
+		if (fires.size() > 0) {
+			return true;
+		}
+		return false;
+	}	
 	private GridPoint myLocation() {
 		return grid.getLocation(this);
 	}
