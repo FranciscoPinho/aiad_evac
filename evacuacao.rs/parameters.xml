@@ -21,4 +21,7 @@
 	<parameter name="propagation_prob" displayName="Propagation Probability" type="int"
 		defaultValue="25" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
+	<parameter name="altruistic_probability" displayName="Probability of spawning altruists" type="int"
+		defaultValue="20" isReadOnly="false"
+		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 </parameters>

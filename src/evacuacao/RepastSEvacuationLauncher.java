@@ -63,18 +63,19 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		int radiusVision = (Integer) params.getValue("radius_vision");
 		int prob = (Integer) params.getValue("propagation_prob");
 		int injuryRadius = (Integer) params.getValue("fire_injury_radius");
+		int altper = (Integer) params.getValue("altruistic_probability");
 
 		generateExits(grid,context,doorsCount);
-		createHumans(grid,context,humanCount,radiusVision,injuryRadius);
+		createHumans(grid,context,humanCount,radiusVision,injuryRadius,altper);
 		createSecurity(grid,context,securityCount);
 		startAccident(grid,context,0,0,prob);
 	}
 
-	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision, int injuryRadius){
+	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision, int injuryRadius, int altruisticPercent){
 		for (int i = 0; i < humanCount; i++) {
-			int altruism_prob = RandomHelper.nextIntFromTo(1,10);
+			int altruism_prob = RandomHelper.nextIntFromTo(1,100);
 			Human newHuman;
-			if(altruism_prob<=2)
+			if(altruism_prob<=altruisticPercent)
 				newHuman = new AltruisticHuman(grid, context,State.inRoom,Condition.healthy,radiusVision,injuryRadius);
 			else newHuman = new SelfishHuman(grid, context,State.inRoom,Condition.healthy,radiusVision,injuryRadius);
 			context.add(newHuman);
@@ -86,7 +87,7 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 			}
 			grid.moveTo(newHuman, startX, startY);
 			try {
-				mainContainer.acceptNewAgent("student" + i, newHuman).start();
+				mainContainer.acceptNewAgent(newHuman.getClass().getSimpleName()+"Student " + i, newHuman).start();
 			} catch (StaleProxyException e) {
 				e.printStackTrace();
 			}
