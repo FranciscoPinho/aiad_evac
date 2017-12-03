@@ -62,16 +62,17 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		int doorsCount = (Integer) params.getValue("doors_count");
 		int radiusVision = (Integer) params.getValue("radius_vision");
 		int prob = (Integer) params.getValue("propagation_prob");
+		int injuryRadius = (Integer) params.getValue("fire_injury_radius");
 
 		generateExits(grid,context,doorsCount);
-		createHumans(grid,context,humanCount,radiusVision);
+		createHumans(grid,context,humanCount,radiusVision,injuryRadius);
 		createSecurity(grid,context,securityCount);
 		startAccident(grid,context,0,0,prob);
 	}
 
-	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision){
+	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision, int injuryRadius){
 		for (int i = 0; i < humanCount; i++) {
-			Human newHuman = new Human(grid, context,State.inRoom,Condition.healthy,1,radiusVision);
+			Human newHuman = new Human(grid, context,State.inRoom,Condition.healthy,1,radiusVision,injuryRadius);
 			context.add(newHuman);
 			int startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
 			int startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
@@ -81,7 +82,7 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 			}
 			grid.moveTo(newHuman, startX, startY);
 			try {
-				mainContainer.acceptNewAgent("person" + i, newHuman).start();
+				mainContainer.acceptNewAgent("student" + i, newHuman).start();
 			} catch (StaleProxyException e) {
 				e.printStackTrace();
 			}

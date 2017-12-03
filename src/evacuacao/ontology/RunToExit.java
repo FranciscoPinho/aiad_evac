@@ -16,7 +16,7 @@ public class RunToExit implements AgentAction {
 	public RunToExit(int x,int y) {
 		this.x=x;
 		this.y=y;
-		this.message="The exit is at ("+x+","+y+")"+"! Run for your life";
+		this.message="The exit is at ("+this.x+","+this.y+")"+"! Run for your life";
 	}
 
 	public String getMessage() {
@@ -33,12 +33,12 @@ public class RunToExit implements AgentAction {
 		return y;
 	}
 	
-	public int setX(int x) {
-		return x;
+	public void setX(int x) {
+		this.x=x;
 	}
 	
-	public int setY(int y) {
-		return y;
+	public void setY(int y) {
+		this.y=y;
 	}
 	
 	
