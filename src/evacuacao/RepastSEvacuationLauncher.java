@@ -72,7 +72,11 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 
 	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision, int injuryRadius){
 		for (int i = 0; i < humanCount; i++) {
-			Human newHuman = new Human(grid, context,State.inRoom,Condition.healthy,1,radiusVision,injuryRadius);
+			int altruism_prob = RandomHelper.nextIntFromTo(1,10);
+			Human newHuman;
+			if(altruism_prob<=2)
+				newHuman = new AltruisticHuman(grid, context,State.inRoom,Condition.healthy,radiusVision,injuryRadius);
+			else newHuman = new SelfishHuman(grid, context,State.inRoom,Condition.healthy,radiusVision,injuryRadius);
 			context.add(newHuman);
 			int startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 22);
 			int startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);

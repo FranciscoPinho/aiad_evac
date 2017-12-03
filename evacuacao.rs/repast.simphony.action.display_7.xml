@@ -7,11 +7,11 @@
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
-      <string>evacuacao.Wall</string>
+      <string>evacuacao.SelfishHuman</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
-      <string>evacuacao.Human</string>
+      <string>evacuacao.Wall</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
@@ -20,6 +20,10 @@
     </entry>
     <entry>
       <string>evacuacao.Security</string>
+      <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
+    </entry>
+    <entry>
+      <string>evacuacao.AltruisticHuman</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
@@ -33,12 +37,12 @@
       <string>evacuacao.Door.style_2.xml</string>
     </entry>
     <entry>
-      <string>evacuacao.Wall</string>
-      <string>evacuacao.Wall.style_0.xml</string>
+      <string>evacuacao.SelfishHuman</string>
+      <string>evacuacao.SelfishHuman.style_1.xml</string>
     </entry>
     <entry>
-      <string>evacuacao.Human</string>
-      <string>evacuacao.Human.style_0.xml</string>
+      <string>evacuacao.Wall</string>
+      <string>evacuacao.Wall.style_0.xml</string>
     </entry>
     <entry>
       <string>evacuacao.DeadHuman</string>
@@ -47,6 +51,10 @@
     <entry>
       <string>evacuacao.Security</string>
       <string>evacuacao.Security.style_2.xml</string>
+    </entry>
+    <entry>
+      <string>evacuacao.AltruisticHuman</string>
+      <string>evacuacao.AltruisticHuman.style_1.xml</string>
     </entry>
     <entry>
       <string>evacuacao.Fire</string>
@@ -63,7 +71,7 @@
     <pType>LAST</pType>
     <duration>-1.0</duration>
     <frequency>REPEAT</frequency>
-    <hashCode>1417644336</hashCode>
+    <hashCode>383121235</hashCode>
   </schedParams>
   <layoutClassName>foo.bar.baz</layoutClassName>
   <layoutProjection>grid</layoutProjection>
@@ -71,22 +79,26 @@
   <layerOrder>
     <entry>
       <string>evacuacao.Door</string>
-      <int>5</int>
+      <int>6</int>
     </entry>
     <entry>
-      <string>evacuacao.Wall</string>
-      <int>4</int>
-    </entry>
-    <entry>
-      <string>evacuacao.Human</string>
+      <string>evacuacao.SelfishHuman</string>
       <int>1</int>
     </entry>
     <entry>
+      <string>evacuacao.Wall</string>
+      <int>5</int>
+    </entry>
+    <entry>
       <string>evacuacao.DeadHuman</string>
-      <int>3</int>
+      <int>4</int>
     </entry>
     <entry>
       <string>evacuacao.Security</string>
+      <int>3</int>
+    </entry>
+    <entry>
+      <string>evacuacao.AltruisticHuman</string>
       <int>2</int>
     </entry>
     <entry>

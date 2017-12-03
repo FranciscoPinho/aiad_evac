@@ -43,7 +43,7 @@ public class Human extends Agent {
 	private Context<Object> context;
 	private State state;
 	private Condition condition;
-	private float altruism;
+	private boolean altruism;
 	private ArrayList<Zones> explored = new ArrayList<Zones>();
 	private Zones nextZone = Zones.nowhere;
 	private Zones fromZone = Zones.nowhere;
@@ -58,7 +58,7 @@ public class Human extends Agent {
 	protected int escaped = 0;
 	protected int askedCoordinates =0;
 
-	public Human(Grid<Object> grid, Context<Object> context, State state, Condition condition, float altruism,
+	public Human(Grid<Object> grid, Context<Object> context, State state, Condition condition, boolean altruism,
 			int visionRadius, int fireInjuryRadius) {
 		super();
 		this.grid = grid;
@@ -131,7 +131,7 @@ public class Human extends Agent {
 			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
 				escaped = 1;
 				isSimulationOver();
-				System.out.println( myAgent.getLocalName() + " is DONE! Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+				//System.out.println( myAgent.getLocalName() + " is DONE! Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 				return true;
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
@@ -146,7 +146,7 @@ public class Human extends Agent {
 					else System.out.println(obj.getClass().toString() + " : " + myLocation().getX()+","+myLocation().getY()+ " - " + myAgent.getLocalName() + " Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 				}*/
 				isSimulationOver();
-				System.out.println( myAgent.getLocalName() + " is DONE! Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+				//System.out.println( myAgent.getLocalName() + " is DONE! Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 				return true;
 			}
 
