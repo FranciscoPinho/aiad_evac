@@ -74,11 +74,12 @@ public class Graph {
 		}
 
 		public GridPoint getNextPoint(String startName) {
+			if (this.previous == null) {
+				//System.out.printf("%s(unreached)", this.name);
+				return null;
+			} 
 			if (this.previous.getName().equals(startName)) {
 				return this.getGridPoint();
-			} else if (this.previous == null) {
-				System.out.printf("%s(unreached)", this.name);
-				return null;
 			} else {
 				return this.previous.getNextPoint(startName);
 			}
@@ -108,7 +109,7 @@ public class Graph {
 	/** Runs dijkstra using a specified source vertex */
 	public void dijkstra(String startName) {
 		if (!graph.containsKey(startName)) {
-			System.err.printf("Graph doesn't contain start vertex \"%s\"\n", startName);
+			//System.err.printf("Graph doesn't contain start vertex \"%s\"\n", startName);
 			return;
 		}
 		final Vertex source = graph.get(startName);
@@ -153,7 +154,7 @@ public class Graph {
 	/** Prints a path from the source to the specified vertex */
 	public void printPath(String endName) {
 		if (!graph.containsKey(endName)) {
-			System.err.printf("Graph doesn't contain end vertex \"%s\"\n", endName);
+			//System.err.printf("Graph doesn't contain end vertex \"%s\"\n", endName);
 			return;
 		}
 
@@ -174,7 +175,7 @@ public class Graph {
 
 	public GridPoint getNextPoint(String startName, String endName) {
 		if (!graph.containsKey(endName)) {
-			System.err.printf("Graph doesn't contain end vertex \"%s\"\n", endName);
+			//System.err.printf("Graph doesn't contain end vertex \"%s\"\n", endName);
 			return null;
 		}
 

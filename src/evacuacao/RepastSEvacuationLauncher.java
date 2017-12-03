@@ -74,10 +74,10 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		for (int i = 0; i < humanCount; i++) {
 			Human newHuman = new Human(grid, context,State.inRoom,Condition.healthy,1,radiusVision,injuryRadius);
 			context.add(newHuman);
-			int startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
+			int startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 22);
 			int startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
 			while (!isValidPosition(startX, startY, grid)) {
-				startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
+				startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 22);
 				startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
 			}
 			grid.moveTo(newHuman, startX, startY);
@@ -90,10 +90,10 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 	}
 	
 	private void startAccident(Grid<Object> grid, Context<Object> context,int x,int y,int propagationProb){
-			int startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
+			int startX = RandomHelper.nextIntFromTo(1, 9);
 			int startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
-			while (!isValidPosition(startX, startY, grid)) {
-				startX = RandomHelper.nextIntFromTo(1, grid.getDimensions().getWidth() - 20);
+			while (!isValidPosition(startX, startY, grid) || (startY>=9 && startY<=16)) {
+				startX = RandomHelper.nextIntFromTo(1, 9);
 				startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
 			}
 			new Fire(grid,context,startX,startY,propagationProb);

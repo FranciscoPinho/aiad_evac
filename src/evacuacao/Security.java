@@ -102,6 +102,9 @@ public class Security extends Agent {
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
+				DeadHuman dead = new DeadHuman();
+				context.add(dead);
+				grid.moveTo(dead, myLocation().getX(), myLocation().getY());
 				isSimulationOver();
 				return true;
 			}
@@ -133,7 +136,7 @@ public class Security extends Agent {
 			
 			if (msg != null) {
 				if (msg.getContent().equals(new ExitRequest().getRequest())) {
-					System.out.println("Received Request from "+msg.getSender().getLocalName());
+					//System.out.println("Received Request from "+msg.getSender().getLocalName());
 					if (closestExitX != -1 && closestExitY != -1) {
 						ACLMessage reply = msg.createReply();
 						reply.setPerformative(ACLMessage.REQUEST);
@@ -312,7 +315,7 @@ public class Security extends Agent {
 		if (j >= grid.getDimensions().getHeight())
 			return false;
 		for (Object obj : grid.getObjectsAt(i, j)) {
-			if (obj instanceof Wall) {
+			if (obj instanceof Wall || obj instanceof Fire) {
 				return false;
 			}
 		}

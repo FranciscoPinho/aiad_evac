@@ -17,7 +17,7 @@ public class Fire {
 		this.propagationProb=propagationProb;
 		this.context.add(this);
 		this.grid.moveTo(this,x,y);
-		this.propagationInflation=30;
+		this.propagationInflation=20;
 	}
 	public Fire(Grid<Object> grid,Context<Object> context, int x, int y,int propagationProb,int propagationInflation) {
 		this.grid = grid;
@@ -27,7 +27,7 @@ public class Fire {
 		this.context.add(this);
 		this.grid.moveTo(this,x,y);
 	}
-	@ScheduledMethod(start = 5, interval = 5)
+	@ScheduledMethod(start = 5, interval = 6)
 	public void step() {
 		int prob= RandomHelper.nextIntFromTo(0,100);
 		if(prob<=propagationProb+propagationInflation){

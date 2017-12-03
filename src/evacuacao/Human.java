@@ -54,8 +54,9 @@ public class Human extends Agent {
 	private AID securityAID = null;
 	private Codec codec;
 	private Ontology evacOntology;
-	private int dead = 0;
+	protected int dead = 0;
 	protected int escaped = 0;
+	protected int askedCoordinates =0;
 
 	public Human(Grid<Object> grid, Context<Object> context, State state, Condition condition, float altruism,
 			int visionRadius, int fireInjuryRadius) {
@@ -93,15 +94,28 @@ public class Human extends Agent {
 			// System.out.println("Movement at tick:
 			// "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 
+			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
+				setDead(1);
+				return;
+			}
+
 			if (myLocation().getX() > grid.getDimensions().getWidth() - 21 && state != State.knowExit)
 				state = State.wandering;
-			// lookup in visionRadius to find exit or security guard
+			// lookup in visionRadius to find exit or security guard or to be
+			// burned
 			if (state != State.knowExit)
 				visionAndBurnDetection(myLocation());
 
+			// if agent is injured, he has 40% chance of not moving
+			if (condition == Condition.injured) {
+				int chanceMove = RandomHelper.nextIntFromTo(0, 100);
+				if (chanceMove <= 40)
+					return;
+			}
+
 			switch (state) {
 			case inRoom:
-				moveTowards(myLocation());
+				leaveRooms(myLocation());
 				break;
 			case wandering:
 				moveExplore(myLocation());
@@ -115,16 +129,27 @@ public class Human extends Agent {
 		@Override
 		public boolean done() {
 			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
-				escaped=1;
+				escaped = 1;
 				isSimulationOver();
+				System.out.println( myAgent.getLocalName() + " is DONE! Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 				return true;
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
+				DeadHuman dead = new DeadHuman();
+				context.add(dead);
+				grid.moveTo(dead, myLocation().getX(), myLocation().getY());
+				/*Iterable<Object> it = grid.getObjectsAt(myLocation().getX(), myLocation().getY());
+				for(Object obj: it){
+					if(obj instanceof Human)
+						System.out.println(((Human)obj).getLocalName() + " : " + myLocation().getX()+","+myLocation().getY()+ " - " + myAgent.getLocalName() + " Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+					else System.out.println(obj.getClass().toString() + " : " + myLocation().getX()+","+myLocation().getY()+ " - " + myAgent.getLocalName() + " Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+				}*/
 				isSimulationOver();
+				System.out.println( myAgent.getLocalName() + " is DONE! Tick_Count: "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 				return true;
 			}
-			
+
 			return false;
 		}
 	}
@@ -132,6 +157,7 @@ public class Human extends Agent {
 	class queryDoorCoordinates extends SimpleBehaviour {
 		private static final long serialVersionUID = 1L;
 		private boolean querySent = false;
+
 		public queryDoorCoordinates(Agent a) {
 			super(a);
 		}
@@ -148,7 +174,7 @@ public class Human extends Agent {
 				msgSend.setOntology(evacOntology.getName());
 				// Send message
 				send(msgSend);
-				querySent=true;
+				querySent = true;
 			}
 		}
 
@@ -166,10 +192,9 @@ public class Human extends Agent {
 		}
 
 		public void action() {
-			
+
 			ACLMessage msg = receive();
 			if (msg != null) {
-				System.out.println("Receiving");
 				try {
 					ContentElement content = getContentManager().extractContent(msg);
 					AgentAction action = (AgentAction) ((Action) content).getAction();
@@ -203,16 +228,21 @@ public class Human extends Agent {
 			exitX = action.getX();
 			exitY = action.getY();
 			state = State.knowExit;
+			askedCoordinates=1;
 		}
 	}
-	
+
 	/**
 	 * Collects agents that are in range of being asked for help
-	 * @param pt center of the "circle radius" where the message will be supposedly broadcast
-	 * @param messageRadius integer with radius of message being heard by other agents
+	 * 
+	 * @param pt
+	 *            center of the "circle radius" where the message will be
+	 *            supposedly broadcast
+	 * @param messageRadius
+	 *            integer with radius of message being heard by other agents
 	 * @return ArrayList of potential rescuers
 	 */
-	private ArrayList<AID> potentialRescuers(GridPoint pt,int messageRadius) {
+	private ArrayList<AID> potentialRescuers(GridPoint pt, int messageRadius) {
 		int i = pt.getX();
 		int j = pt.getY();
 		ArrayList<AID> potentialRescuers = new ArrayList<AID>();
@@ -244,11 +274,16 @@ public class Human extends Agent {
 		}
 		return potentialRescuers;
 	}
+
 	/**
-	 * Functions as agent's "vision" detecting exits or security guards in a radius, 
-	 * also detects if agent is within the radius of being injured by nearby fire and updates the
-	 * condition of the agent to injured if a fire is within radius
-	 * @param pt center of the "circle radius" where the vision of the agent will be processed
+	 * Functions as agent's "vision" detecting exits or security guards in a
+	 * radius, also detects if agent is within the radius of being injured by
+	 * nearby fire and updates the condition of the agent to injured if a fire
+	 * is within radius
+	 * 
+	 * @param pt
+	 *            center of the "circle radius" where the vision of the agent
+	 *            will be processed
 	 * @return true if any exit or security agent is detected
 	 */
 	private boolean visionAndBurnDetection(GridPoint pt) {
@@ -396,26 +431,28 @@ public class Human extends Agent {
 		}
 		return false;
 	}
-	
+
 	/**
-	 * Check if all agents are either dead or have successfully escaped, ends simulation if that's the case
+	 * Check if all agents are either dead or have successfully escaped, ends
+	 * simulation if that's the case
 	 */
 	private void isSimulationOver() {
 		for (Object obj : grid.getObjects()) {
-			if (obj instanceof Security){
-				if(((Security)obj).getDead()==0 && ((Security)obj).escaped==0)
+			if (obj instanceof Security) {
+				if (((Security) obj).getDead() == 0 && ((Security) obj).escaped == 0)
 					return;
 			}
-			if(obj instanceof Human) {
-				if(((Human)obj).getDead()==0 && ((Human)obj).escaped==0)
+			if (obj instanceof Human) {
+				if (((Human) obj).getDead() == 0 && ((Human) obj).escaped == 0)
 					return;
 			}
 		}
 		RunEnvironment.getInstance().endRun();
 	}
-	
+
 	/**
 	 * Check if an exit/door is at the location passed in the parameters
+	 * 
 	 * @param x
 	 * @param y
 	 * @return true if an exit/door found and false otherwise
@@ -431,9 +468,10 @@ public class Human extends Agent {
 
 		return door_found;
 	}
-	
+
 	/**
 	 * Check if a fire is at the location passed in the parameters
+	 * 
 	 * @param x
 	 * @param y
 	 * @return true if a fire is found and false otherwise
@@ -458,17 +496,17 @@ public class Human extends Agent {
 		}
 		return null;
 	}
-	
+
 	private ArrayList<AID> checkAgentsAtLocation(int x, int y) {
 		ArrayList<AID> agents = new ArrayList<AID>();
 		for (Object obj : grid.getObjectsAt(x, y)) {
 			if (obj instanceof Agent) {
-				agents.add(((Agent)obj).getAID());
+				agents.add(((Agent) obj).getAID());
 			}
 		}
 		return agents;
 	}
-	
+
 	private GridPoint myLocation() {
 
 		return grid.getLocation(this);
@@ -784,20 +822,20 @@ public class Human extends Agent {
 
 			ArrayList<GridPoint> possibleMoves = new ArrayList<GridPoint>();
 
-			if (validPosition(i, j + 1)) {
+			if (validMovementPosition(i, j + 1)) {
 				possibleMoves.add(new GridPoint(i, j + 1));
 			}
-			if (validPosition(i + 1, j + 1)) {
+			if (validMovementPosition(i + 1, j + 1)) {
 				possibleMoves.add(new GridPoint(i + 1, j + 1));
 			}
-			if (validPosition(i + 1, j)) {
+			if (validMovementPosition(i + 1, j)) {
 				possibleMoves.add(new GridPoint(i + 1, j));
 			}
-			if (validPosition(i, j - 1)) {
+			if (validMovementPosition(i, j - 1)) {
 				possibleMoves.add(new GridPoint(i, j - 1));
 			}
 
-			if (validPosition(i + 1, j - 1)) {
+			if (validMovementPosition(i + 1, j - 1)) {
 				possibleMoves.add(new GridPoint(i + 1, j - 1));
 			}
 
@@ -819,42 +857,32 @@ public class Human extends Agent {
 		setMoved(true);
 	}
 
-	public void moveTowards(GridPoint pt) {
+	public void leaveRooms(GridPoint pt) {
 		double distToExit = 999999;
-		int indexDoor = -1;
-
-		// Move To Shortest Exit
-		List<Door> doors = new ArrayList<Door>();
-		for (Object obj : grid.getObjects()) {
-			if (obj instanceof Door) {
-				doors.add((Door) obj);
-			}
+		GridPoint topRoomExit = new GridPoint(20, 20);
+		GridPoint lowerRoomExit = new GridPoint(20, 8);
+		double distVal = Math.hypot(myLocation().getX() - topRoomExit.getX(), myLocation().getY() - topRoomExit.getY());
+		if (distVal < distToExit) {
+			distToExit = distVal;
 		}
-		if (doors.size() > 0) {
-			for (int i = 0; i < doors.size(); i++) {
-				double distVal = Math.hypot(myLocation().getX() - doors.get(i).getLocation().getX(),
-						myLocation().getY() - doors.get(i).getLocation().getY());
-				// System.out.println(myLocation().getX() + " " +
-				// myLocation().getY() + " " + doors.get(i).getLocation().getX()
-				// + " "
-				// + doors.get(i).getLocation().getX() + " " + distVal);
-				if (distVal < distToExit) {
-					distToExit = distVal;
-					indexDoor = i;
-				}
-			}
-		}
-
-		if (indexDoor > -1) {
-			// Go To shortest Possible Direction
-
-			GridPoint nextPoint = getNextPoint(pt, doors.get(indexDoor).getLocation());
+		distVal = Math.hypot(myLocation().getX() - lowerRoomExit.getX(), myLocation().getY() - lowerRoomExit.getY());
+		if (distVal < distToExit) {
+			distToExit = distVal;
+			GridPoint nextPoint = getNextPoint(pt, lowerRoomExit);
 			if (nextPoint != null) {
 				grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+				setMoved(true);
+				return;
 			}
-
 		}
-		setMoved(true);
+		GridPoint nextPoint = getNextPoint(pt, topRoomExit);
+		if (nextPoint != null) {
+			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+			setMoved(true);
+			return;
+		}
+		return;
+
 	}
 
 	private GridPoint getNextPoint(GridPoint pt, GridPoint location) {
@@ -866,56 +894,56 @@ public class Human extends Agent {
 				if (validPosition(i, j)) {
 					// Try to add 8 Possible edge
 					// -1- (i-1,j+1)
-					if (validPosition(i - 1, j + 1)) {
+					if (validMovementPosition(i - 1, j + 1)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i - 1) + "y" + Integer.toString(j + 1), 1, new GridPoint(i, j),
 								new GridPoint(i - 1, j + 1));
 						lgraph.add(nEdge);
 					}
 					// -2- (i,j+1)
-					if (validPosition(i, j + 1)) {
+					if (validMovementPosition(i, j + 1)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i) + "y" + Integer.toString(j + 1), 1, new GridPoint(i, j),
 								new GridPoint(i, j + 1));
 						lgraph.add(nEdge);
 					}
 					// -3- (i+1,j+1)
-					if (validPosition(i + 1, j + 1)) {
+					if (validMovementPosition(i + 1, j + 1)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i + 1) + "y" + Integer.toString(j + 1), 1, new GridPoint(i, j),
 								new GridPoint(i + 1, j + 1));
 						lgraph.add(nEdge);
 					}
 					// -4- (i-1,j)
-					if (validPosition(i - 1, j)) {
+					if (validMovementPosition(i - 1, j)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i - 1) + "y" + Integer.toString(j), 1, new GridPoint(i, j),
 								new GridPoint(i - 1, j));
 						lgraph.add(nEdge);
 					}
 					// -5- (i+1,j)
-					if (validPosition(i + 1, j)) {
+					if (validMovementPosition(i + 1, j)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i + 1) + "y" + Integer.toString(j), 1, new GridPoint(i, j),
 								new GridPoint(i + 1, j));
 						lgraph.add(nEdge);
 					}
 					// -6- (i-1,j-1)
-					if (validPosition(i - 1, j - 1)) {
+					if (validMovementPosition(i - 1, j - 1)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i - 1) + "y" + Integer.toString(j - 1), 1, new GridPoint(i, j),
 								new GridPoint(i - 1, j - 1));
 						lgraph.add(nEdge);
 					}
 					// -7- (i,j-1)
-					if (validPosition(i, j - 1)) {
+					if (validMovementPosition(i, j - 1)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i) + "y" + Integer.toString(j - 1), 1, new GridPoint(i, j),
 								new GridPoint(i, j - 1));
 						lgraph.add(nEdge);
 					}
 					// -8- (i+1,j-1)
-					if (validPosition(i + 1, j - 1)) {
+					if (validMovementPosition(i + 1, j - 1)) {
 						Graph.Edge nEdge = new Graph.Edge("x" + Integer.toString(i) + "y" + Integer.toString(j),
 								"x" + Integer.toString(i + 1) + "y" + Integer.toString(j - 1), 1, new GridPoint(i, j),
 								new GridPoint(i + 1, j - 1));
@@ -936,6 +964,21 @@ public class Human extends Agent {
 		// g.printPath(END);
 		// g.printAllPaths();
 		return nextPoint;
+	}
+
+	private boolean validMovementPosition(int i, int j) {
+		if (i < 0 || j < 0)
+			return false;
+		if (i >= grid.getDimensions().getWidth())
+			return false;
+		if (j >= grid.getDimensions().getHeight())
+			return false;
+		for (Object obj : grid.getObjectsAt(i, j)) {
+			if (obj instanceof Wall || obj instanceof Fire) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private boolean validPosition(int i, int j) {
@@ -996,17 +1039,24 @@ public class Human extends Agent {
 	public void setMoved(boolean moved) {
 		this.moved = moved;
 	}
+
 	public int deathStatistics() {
 		return dead;
 	}
+
 	public int survivalStatistics() {
-		if(dead==1)
+		if (dead == 1)
 			return 0;
-		else return 1;
+		else
+			return 1;
+	}
+	public int askedCoordinates(){
+		return this.askedCoordinates;
 	}
 	public int getDead() {
 		return this.dead;
 	}
+
 	public void setDead(int dead) {
 		this.dead = dead;
 	}
