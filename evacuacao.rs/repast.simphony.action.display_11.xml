@@ -1,5 +1,5 @@
 <repast.simphony.visualization.engine.CartesianDisplayDescriptor>
-  <name>Grid Display</name>
+  <name>Grid with network display</name>
   <type>2D</type>
   <styles>
     <entry>
@@ -19,11 +19,11 @@
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
-      <string>evacuacao.Security</string>
+      <string>evacuacao.AltruisticHuman</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
-      <string>evacuacao.AltruisticHuman</string>
+      <string>evacuacao.Security</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
@@ -34,35 +34,45 @@
   <editedStyles>
     <entry>
       <string>evacuacao.Door</string>
-      <string>evacuacao.Door.style_2.xml</string>
+      <string>evacuacao.Door.style_3.xml</string>
     </entry>
     <entry>
       <string>evacuacao.SelfishHuman</string>
-      <string>evacuacao.SelfishHuman.style_1.xml</string>
+      <string>evacuacao.SelfishHuman.style_3.xml</string>
     </entry>
     <entry>
       <string>evacuacao.Wall</string>
-      <string>evacuacao.Wall.style_0.xml</string>
+      <string>evacuacao.Wall.style_1.xml</string>
     </entry>
     <entry>
       <string>evacuacao.DeadHuman</string>
-      <string>evacuacao.DeadHuman.style_0.xml</string>
-    </entry>
-    <entry>
-      <string>evacuacao.Security</string>
-      <string>evacuacao.Security.style_2.xml</string>
+      <string>evacuacao.DeadHuman.style_3.xml</string>
     </entry>
     <entry>
       <string>evacuacao.AltruisticHuman</string>
-      <string>evacuacao.AltruisticHuman.style_1.xml</string>
+      <string>evacuacao.AltruisticHuman.style_3.xml</string>
+    </entry>
+    <entry>
+      <string>evacuacao.Security</string>
+      <string>evacuacao.Security.style_1.xml</string>
     </entry>
     <entry>
       <string>evacuacao.Fire</string>
-      <string>evacuacao.Fire.style_1.xml</string>
+      <string>evacuacao.Fire.style_2.xml</string>
     </entry>
   </editedStyles>
-  <netStyles/>
-  <editedNetStyles/>
+  <netStyles>
+    <entry>
+      <string>Help Request Network</string>
+      <string>repast.simphony.visualizationOGL2D.DefaultEdgeStyleOGL2D</string>
+    </entry>
+  </netStyles>
+  <editedNetStyles>
+    <entry>
+      <string>Help Request Network</string>
+      <null/>
+    </entry>
+  </editedNetStyles>
   <frequency>ON_MOVE</frequency>
   <schedParams>
     <start>1.0</start>
@@ -71,7 +81,7 @@
     <pType>LAST</pType>
     <duration>-1.0</duration>
     <frequency>REPEAT</frequency>
-    <hashCode>383121235</hashCode>
+    <hashCode>-389711217</hashCode>
   </schedParams>
   <layoutClassName>foo.bar.baz</layoutClassName>
   <layoutProjection>grid</layoutProjection>
@@ -83,27 +93,27 @@
     </entry>
     <entry>
       <string>evacuacao.SelfishHuman</string>
-      <int>1</int>
+      <int>3</int>
     </entry>
     <entry>
       <string>evacuacao.Wall</string>
-      <int>5</int>
+      <int>0</int>
     </entry>
     <entry>
       <string>evacuacao.DeadHuman</string>
+      <int>5</int>
+    </entry>
+    <entry>
+      <string>evacuacao.AltruisticHuman</string>
       <int>4</int>
     </entry>
     <entry>
       <string>evacuacao.Security</string>
-      <int>3</int>
-    </entry>
-    <entry>
-      <string>evacuacao.AltruisticHuman</string>
       <int>2</int>
     </entry>
     <entry>
       <string>evacuacao.Fire</string>
-      <int>0</int>
+      <int>1</int>
     </entry>
   </layerOrder>
   <projections>
@@ -112,11 +122,23 @@
       <attributes/>
       <type>grid</type>
     </repast.simphony.scenario.data.ProjectionData>
+    <repast.simphony.scenario.data.ProjectionData>
+      <id>Help Request Network</id>
+      <attributes/>
+      <type>network</type>
+    </repast.simphony.scenario.data.ProjectionData>
   </projections>
   <visualizationProperties class="repast.simphony.visualization.UnitSizeLayoutProperties">
     <unitSize>20.0</unitSize>
   </visualizationProperties>
   <projectionDescriptors>
+    <entry>
+      <string>Help Request Network</string>
+      <repast.simphony.visualization.engine.DefaultProjectionDescriptor>
+        <proj reference="../../../../projections/repast.simphony.scenario.data.ProjectionData[2]"/>
+        <props/>
+      </repast.simphony.visualization.engine.DefaultProjectionDescriptor>
+    </entry>
     <entry>
       <string>grid</string>
       <repast.simphony.visualization.grid.GridProjectionDescriptor>
@@ -127,7 +149,7 @@
             <map>
               <entry>
                 <string>COLOR</string>
-                <int>-16777114</int>
+                <int>-16777216</int>
               </entry>
               <entry>
                 <string>UNIT_SIZE</string>

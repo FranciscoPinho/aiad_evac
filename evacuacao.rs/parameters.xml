@@ -7,7 +7,7 @@
 		defaultValue="10" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 	<parameter name="security_count" displayName="Security Count" type="int"
-		defaultValue="5" isReadOnly="false"
+		defaultValue="2" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 	<parameter name="doors_count" displayName="Doors Count" type="int"
 		defaultValue="2" isReadOnly="false"
