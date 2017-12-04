@@ -2,6 +2,7 @@ package evacuacao;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 
 import evacuacao.ontology.EvacuationOntology;
 import evacuacao.ontology.ExitRequest;
@@ -26,6 +27,7 @@ import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.graph.Network;
+import repast.simphony.space.graph.RepastEdge;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
 
@@ -49,10 +51,11 @@ public class Human extends Agent {
 	private Condition condition;
 	private boolean altruism;
 	private boolean fatedToDie;
-	private boolean gotDoorCoordinates=false;
+	private boolean gotDoorCoordinates = false;
 	private ArrayList<Zones> explored = new ArrayList<Zones>();
 	private Zones nextZone = Zones.nowhere;
 	private Zones fromZone = Zones.nowhere;
+	private RepastEdge<Object> connectionVictim, connectionSecurity = null;
 	private int visionRadius;
 	private int fireInjuryRadius;
 	private int exitX = -1;
@@ -119,13 +122,12 @@ public class Human extends Agent {
 
 			// if agent is injured, he has 40% chance of not moving
 			if (condition == Condition.injured) {
+				if (!fatedToDie && dead == 0) {
+					ArrayList<AID> rescuers = potentialRescuers(myLocation(), 10);
+					addBehaviour(new sendHelpRequests(myAgent, rescuers));
+				}
 				int chanceMove = RandomHelper.nextIntFromTo(0, 100);
 				if (chanceMove <= 40) {
-					if (!fatedToDie && dead == 0) {
-						ArrayList<AID> rescuers = potentialRescuers(myLocation(), 10);
-						addBehaviour(new sendHelpRequests(myAgent, rescuers));
-					} else
-						System.out.println("I " + myAgent.getLocalName() + "am now fated to die");
 					return;
 				}
 			}
@@ -153,9 +155,8 @@ public class Human extends Agent {
 			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
 				escaped = 1;
 				isSimulationOver();
-				// System.out.println( myAgent.getLocalName() + " is DONE!
-				// Tick_Count:
-				// "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
+				if (connectionSecurity != null)
+					((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionSecurity);
 				return true;
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
@@ -163,24 +164,9 @@ public class Human extends Agent {
 				DeadHuman dead = new DeadHuman();
 				context.add(dead);
 				grid.moveTo(dead, myLocation().getX(), myLocation().getY());
-				/*
-				 * Iterable<Object> it = grid.getObjectsAt(myLocation().getX(),
-				 * myLocation().getY()); for(Object obj: it){ if(obj instanceof
-				 * Human) System.out.println(((Human)obj).getLocalName() + " : "
-				 * + myLocation().getX()+","+myLocation().getY()+ " - " +
-				 * myAgent.getLocalName() +
-				 * " Tick_Count: "+RunEnvironment.getInstance().
-				 * getCurrentSchedule().getTickCount()); else
-				 * System.out.println(obj.getClass().toString() + " : " +
-				 * myLocation().getX()+","+myLocation().getY()+ " - " +
-				 * myAgent.getLocalName() +
-				 * " Tick_Count: "+RunEnvironment.getInstance().
-				 * getCurrentSchedule().getTickCount()); }
-				 */
+				if (connectionSecurity != null)
+					((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionSecurity);
 				isSimulationOver();
-				// System.out.println( myAgent.getLocalName() + " is DONE!
-				// Tick_Count:
-				// "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
 				return true;
 			}
 
@@ -190,7 +176,7 @@ public class Human extends Agent {
 
 	class queryDoorCoordinates extends SimpleBehaviour {
 		private static final long serialVersionUID = 1L;
-		
+
 		public queryDoorCoordinates(Agent a) {
 			super(a);
 		}
@@ -244,18 +230,18 @@ public class Human extends Agent {
 						if (action instanceof RunToExit) {
 							exitX = ((RunToExit) action).getX();
 							exitY = ((RunToExit) action).getY();
-							((Network<Object>) context.getProjection("Help Request Network")).addEdge(myAgent,
-									lookupAgent(msg.getSender()));
+							connectionSecurity = ((Network<Object>) context.getProjection("Help Request Network"))
+									.addEdge(myAgent, lookupAgent(msg.getSender()));
 							state = State.knowExit;
 							askedCoordinates = 1;
-							gotDoorCoordinates=true;
+							gotDoorCoordinates = true;
 						}
 						if (action instanceof RescueMe) {
 							System.out.println(myAgent.getLocalName() + " GOING TO SAVE VICTIM: "
 									+ msg.getSender().getLocalName());
 							savingVictim = lookupAgent(((RescueMe) action).getMyself());
-							((Network<Object>) context.getProjection("Help Request Network")).addEdge(myAgent,
-									savingVictim);
+							connectionVictim = ((Network<Object>) context.getProjection("Help Request Network"))
+									.addEdge(myAgent, savingVictim);
 							condition = Condition.healthy;
 							state = State.helping;
 							full_save_attempt++;
@@ -264,8 +250,6 @@ public class Human extends Agent {
 						break;
 					case (ACLMessage.ACCEPT_PROPOSAL):
 						if (savior == null) {
-							System.out.println(
-									msg.getSender().getLocalName() + " DEFINING AS SAVIOR: " + myAgent.getLocalName());
 							ACLMessage reply = msg.createReply();
 							reply.setPerformative(ACLMessage.REQUEST);
 							try {
@@ -285,7 +269,7 @@ public class Human extends Agent {
 								+ msg.getSender().getLocalName());
 						ACLMessage reply = msg.createReply();
 						HelpResponse resp;
-						if (altruism && condition != Condition.injured) {
+						if (altruism && condition != Condition.injured && savingVictim == null) {
 							System.out.println(myAgent.getLocalName() + " ACCEPTING Received help request from "
 									+ msg.getSender().getLocalName());
 							reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
@@ -319,18 +303,19 @@ public class Human extends Agent {
 		}
 
 		public void action() {
-			HelpRequest req = new HelpRequest();
-			ACLMessage msgSend = new ACLMessage(ACLMessage.PROPOSE);
-			for (AID resc : rescuers)
-				msgSend.addReceiver(resc);
-			msgSend.setContent(req.getMessage());
-			// System.out.println("SENT MESSAGE TO: "+securityAID.toString()
-			// + " - " + msgSend.getContent());
-			msgSend.setLanguage(codec.getName());
-			msgSend.setOntology(evacOntology.getName());
-			// Send message
-			send(msgSend);
-
+			if (((Human) myAgent).getDead() == 0) {
+				HelpRequest req = new HelpRequest();
+				ACLMessage msgSend = new ACLMessage(ACLMessage.PROPOSE);
+				for (AID resc : rescuers)
+					msgSend.addReceiver(resc);
+				msgSend.setContent(req.getMessage());
+				// System.out.println("SENT MESSAGE TO: "+securityAID.toString()
+				// + " - " + msgSend.getContent());
+				msgSend.setLanguage(codec.getName());
+				msgSend.setOntology(evacOntology.getName());
+				// Send message
+				send(msgSend);
+			}
 		}
 	}
 
@@ -374,6 +359,7 @@ public class Human extends Agent {
 				potentialRescuers.addAll(checkAgentsAtLocation(i - iter, j + iter));
 			}
 		}
+		Collections.reverse(potentialRescuers);
 		return potentialRescuers;
 	}
 
@@ -382,7 +368,8 @@ public class Human extends Agent {
 	 * security guards in a radius, also detects if agent is within the radius
 	 * of being injured by nearby fire and updates the condition of the agent to
 	 * injured if a fire is within radius(Note:agent cannot be injured in
-	 * immunityCounter>0). If detects a wall in any of the 8 directions, it will ignore everything beyond the wall.
+	 * immunityCounter>0). If detects a wall in any of the 8 directions, it will
+	 * ignore everything beyond the wall.
 	 * 
 	 * @param pt
 	 *            center of the "circle radius" where the vision/physical sense
@@ -616,8 +603,9 @@ public class Human extends Agent {
 	private ArrayList<AID> checkAgentsAtLocation(int x, int y) {
 		ArrayList<AID> agents = new ArrayList<AID>();
 		for (Object obj : grid.getObjectsAt(x, y)) {
-			if (obj instanceof Agent) {
-				agents.add(((Agent) obj).getAID());
+			if (obj instanceof Human) {
+				if (((Human) obj).getDead() == 0 && ((Human) obj).escaped == 0)
+					agents.add(((Agent) obj).getAID());
 			}
 		}
 		return agents;
@@ -1012,6 +1000,7 @@ public class Human extends Agent {
 			trySaveVictim();
 		} else {
 			System.out.println("It's impossible to save the victim " + savingVictim.getLocalName());
+			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
 			savingVictim = null;
 			if (exitX != -1 && exitY != -1) {
 				state = State.knowExit;
@@ -1034,6 +1023,7 @@ public class Human extends Agent {
 				myLocation().getY() - ((Human) savingVictim).getLocation().getY()) < 2) {
 			System.out.println("saved " + ((Human) savingVictim).getLocalName());
 			((Human) savingVictim).receiveHealing();
+			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
 			if (exitX != -1 && exitY != -1) {
 				state = State.knowExit;
 			} else {

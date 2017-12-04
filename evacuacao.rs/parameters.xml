@@ -4,7 +4,7 @@
 	<parameter name="randomSeed" displayName="Default Random Seed"
 		type="int" defaultValue="__NULL__" />
 	<parameter name="human_count" displayName="Human Count" type="int"
-		defaultValue="10" isReadOnly="false"
+		defaultValue="6" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 	<parameter name="security_count" displayName="Security Count" type="int"
 		defaultValue="2" isReadOnly="false"
