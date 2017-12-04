@@ -24,7 +24,8 @@ public class EvacuationOntology extends BeanOntology {
 		try {
 			// add all Concept, Predicate and AgentAction
 			add(ExitRequest.class);
-			add(HelpDenial.class);
+			add(HelpResponse.class);
+			add(RescueMe.class);
 			add(HelpRequest.class);
 			add(RunToExit.class);
 			

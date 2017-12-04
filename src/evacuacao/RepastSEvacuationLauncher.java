@@ -5,6 +5,7 @@ import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.wrapper.StaleProxyException;
 import repast.simphony.context.Context;
+import repast.simphony.context.space.graph.NetworkBuilder;
 import repast.simphony.context.space.grid.GridFactory;
 import repast.simphony.context.space.grid.GridFactoryFinder;
 import repast.simphony.engine.environment.RunEnvironment;
@@ -253,6 +254,9 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		GridFactory gridFactory = GridFactoryFinder.createGridFactory(null);
 		Grid<Object> grid = gridFactory.createGrid("grid", context,
 				new GridBuilderParameters<Object>(new WrapAroundBorders(), new SimpleGridAdder<Object>(), true, 40, 25));
+		NetworkBuilder<Object> netBuilder = new NetworkBuilder<Object>("Help Request Network", context , true );
+		netBuilder.buildNetwork();
+
 		this.grid=grid;
 		this.context=context;
 		return super.build(this.context);

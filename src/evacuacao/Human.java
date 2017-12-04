@@ -5,6 +5,9 @@ import java.util.List;
 
 import evacuacao.ontology.EvacuationOntology;
 import evacuacao.ontology.ExitRequest;
+import evacuacao.ontology.HelpRequest;
+import evacuacao.ontology.HelpResponse;
+import evacuacao.ontology.RescueMe;
 import evacuacao.ontology.RunToExit;
 import graph.Graph;
 import jade.content.AgentAction;
@@ -22,11 +25,12 @@ import sajas.core.behaviours.SimpleBehaviour;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.random.RandomHelper;
+import repast.simphony.space.graph.Network;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
 
 enum State {
-	inRoom, wandering, knowExit
+	inRoom, wandering, knowExit,helping
 }
 
 enum Condition {
@@ -44,19 +48,25 @@ public class Human extends Agent {
 	private State state;
 	private Condition condition;
 	private boolean altruism;
+	private boolean fatedToDie;
 	private ArrayList<Zones> explored = new ArrayList<Zones>();
 	private Zones nextZone = Zones.nowhere;
 	private Zones fromZone = Zones.nowhere;
 	private int visionRadius;
 	private int fireInjuryRadius;
-	private int exitX;
-	private int exitY;
+	private int exitX=-1;
+	private int exitY=-1;
 	private AID securityAID = null;
+	private AID savior=null;
+	private Agent savingVictim = null;
 	private Codec codec;
 	private Ontology evacOntology;
 	protected int dead = 0;
 	protected int escaped = 0;
 	protected int askedCoordinates =0;
+	protected int got_saved =0;
+	protected int full_save_attempt =0;
+	protected int immunityCounter=0;
 
 	public Human(Grid<Object> grid, Context<Object> context, State state, Condition condition, boolean altruism,
 			int visionRadius, int fireInjuryRadius) {
@@ -68,6 +78,7 @@ public class Human extends Agent {
 		this.altruism = altruism;
 		this.visionRadius = visionRadius;
 		this.fireInjuryRadius = fireInjuryRadius;
+		this.fatedToDie=false;
 	}
 
 	@Override
@@ -85,32 +96,36 @@ public class Human extends Agent {
 
 	class movementBehaviour extends SimpleBehaviour {
 		private static final long serialVersionUID = 1L;
-
+		
 		public movementBehaviour(Agent a) {
 			super(a);
 		}
 
 		public void action() {
-			// System.out.println("Movement at tick:
-			// "+RunEnvironment.getInstance().getCurrentSchedule().getTickCount());
-
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
 				return;
 			}
-
-			if (myLocation().getX() > grid.getDimensions().getWidth() - 21 && state != State.knowExit)
-				state = State.wandering;
-			// lookup in visionRadius to find exit or security guard or to be
-			// burned
-			if (state != State.knowExit)
+		
+			if(state!=State.helping)
+				if (myLocation().getX() > grid.getDimensions().getWidth() - 21 && state != State.knowExit)
+					state = State.wandering;
+			
+			// lookup in visionRadius to find exit or security guard or to be burned
+			if(state!=State.helping)
 				visionAndBurnDetection(myLocation());
 
 			// if agent is injured, he has 40% chance of not moving
 			if (condition == Condition.injured) {
 				int chanceMove = RandomHelper.nextIntFromTo(0, 100);
-				if (chanceMove <= 40)
+				if (chanceMove <= 40){
+					if(!fatedToDie){
+						ArrayList<AID> rescuers = potentialRescuers(myLocation(),10);
+						addBehaviour(new sendHelpRequests(myAgent,rescuers));
+					}
+					else System.out.println("I " + myAgent.getLocalName() + "am now fated to die");
 					return;
+				}
 			}
 
 			switch (state) {
@@ -122,6 +137,11 @@ public class Human extends Agent {
 				break;
 			case knowExit:
 				moveToExit(myLocation());
+				break;
+			case helping:
+				moveToVictim(myLocation());
+				break;
+			default:
 				break;
 			}
 		}
@@ -196,16 +216,57 @@ public class Human extends Agent {
 			ACLMessage msg = receive();
 			if (msg != null) {
 				try {
-					ContentElement content = getContentManager().extractContent(msg);
-					AgentAction action = (AgentAction) ((Action) content).getAction();
 					switch (msg.getPerformative()) {
 					case (ACLMessage.REQUEST):
-						if (action instanceof RunToExit)
-							addBehaviour(new handleExitInfo(myAgent, (RunToExit) action));
-						// if (action instanceof HelpRequest)
-						// addBehaviour(new
-						// handleHelpRequest(myAgent,(HelpRequest)action));
+						ContentElement content = getContentManager().extractContent(msg);
+						AgentAction action = (AgentAction) ((Action) content).getAction();
+						if (action instanceof RunToExit){
+							exitX = ((RunToExit)action).getX();
+							exitY = ((RunToExit)action).getY();
+							state = State.knowExit;
+							askedCoordinates=1;
+						}
+						if (action instanceof RescueMe){
+							Network<Object> net=(Network<Object>)context.getProjection("Help Request Network");
+							savingVictim=((RescueMe)action).getVictim();
+							net.addEdge(myAgent, savingVictim);
+							condition=Condition.healthy;
+							state = State.helping;
+							full_save_attempt++;
+							immunityCounter=6;
+						}
 						break;
+					 case (ACLMessage.ACCEPT_PROPOSAL):
+						 if(savior!=null){
+							 ACLMessage reply=msg.createReply();
+							 reply.setPerformative(ACLMessage.REQUEST);
+							try {
+								getContentManager().fillContent(reply,
+										new Action(msg.getSender(), new RescueMe(msg.getSender(), myAgent)));
+								send(reply);
+								savior=msg.getSender();
+							} catch (Exception ex) {
+								ex.printStackTrace();
+							}
+						 }
+						 break;
+					 case (ACLMessage.REJECT_PROPOSAL):
+						 break;
+					 case (ACLMessage.PROPOSE):
+						 ACLMessage reply = msg.createReply();
+					 	 HelpResponse resp;
+						 if(altruism && condition!=Condition.injured){
+							 reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+							 resp=new HelpResponse(true);
+							 reply.setContent(resp.getMessage());
+						 }
+						 else{
+							 reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
+							 resp=new HelpResponse(false);
+							 reply.setContent(resp.getMessage());
+						 }
+						 send(reply);
+						 break;
 					}
 				} catch (Exception ex) {
 					ex.printStackTrace();
@@ -214,21 +275,28 @@ public class Human extends Agent {
 		}
 	}
 
-	class handleExitInfo extends OneShotBehaviour {
+	class sendHelpRequests extends OneShotBehaviour {
 		private static final long serialVersionUID = 1L;
 
-		RunToExit action;
+		ArrayList<AID> rescuers;
 
-		public handleExitInfo(Agent a, RunToExit action) {
+		public sendHelpRequests(Agent a, ArrayList<AID> potRescuers) {
 			super(a);
-			this.action = action;
+			rescuers = potRescuers;
 		}
 
 		public void action() {
-			exitX = action.getX();
-			exitY = action.getY();
-			state = State.knowExit;
-			askedCoordinates=1;
+			HelpRequest req = new HelpRequest();
+			ACLMessage msgSend = new ACLMessage(ACLMessage.PROPOSE);
+			for(AID resc: rescuers)
+				msgSend.addReceiver(resc);
+			msgSend.setContent(req.getMessage());
+			// System.out.println("SENT MESSAGE TO: "+securityAID.toString()
+			// + " - " + msgSend.getContent());
+			msgSend.setLanguage(codec.getName());
+			msgSend.setOntology(evacOntology.getName());
+			// Send message
+			send(msgSend);
 		}
 	}
 
@@ -247,28 +315,28 @@ public class Human extends Agent {
 		int j = pt.getY();
 		ArrayList<AID> potentialRescuers = new ArrayList<AID>();
 		for (int iter = 1; iter <= messageRadius; iter++) {
-			if (validPosition(i, j + iter)) {
+			if (validMovementPosition(i, j + iter)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i, j + iter));
 			}
-			if (validPosition(i + iter, j + iter)) {
+			if (validMovementPosition(i + iter, j + iter)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i + iter, j + iter));
 			}
-			if (validPosition(i + iter, j)) {
+			if (validMovementPosition(i + iter, j)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i + iter, j));
 			}
-			if (validPosition(i, j - iter)) {
+			if (validMovementPosition(i, j - iter)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i, j - iter));
 			}
-			if (validPosition(i + iter, j - iter)) {
+			if (validMovementPosition(i + iter, j - iter)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i + iter, j - iter));
 			}
-			if (validPosition(i - iter, j)) {
+			if (validMovementPosition(i - iter, j)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i - iter, j));
 			}
-			if (validPosition(i - iter, j - iter)) {
+			if (validMovementPosition(i - iter, j - iter)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i - iter, j - iter));
 			}
-			if (validPosition(i - iter, j + iter)) {
+			if (validMovementPosition(i - iter, j + iter)) {
 				potentialRescuers.addAll(checkAgentsAtLocation(i - iter, j + iter));
 			}
 		}
@@ -276,14 +344,12 @@ public class Human extends Agent {
 	}
 
 	/**
-	 * Functions as agent's "vision" detecting exits or security guards in a
+	 * Functions as agent's "vision" and physical sense detecting exits or security guards in a
 	 * radius, also detects if agent is within the radius of being injured by
 	 * nearby fire and updates the condition of the agent to injured if a fire
-	 * is within radius
+	 * is within radius(Note:agent cannot be injured in immunityCounter>0)
 	 * 
-	 * @param pt
-	 *            center of the "circle radius" where the vision of the agent
-	 *            will be processed
+	 * @param pt center of the "circle radius" where the vision/physical sense of the agent will be processed         
 	 * @return true if any exit or security agent is detected
 	 */
 	private boolean visionAndBurnDetection(GridPoint pt) {
@@ -292,15 +358,17 @@ public class Human extends Agent {
 		int highestRadius = this.fireInjuryRadius;
 		if (this.visionRadius >= this.fireInjuryRadius)
 			highestRadius = this.visionRadius;
+		if(immunityCounter>0)
+			immunityCounter--;
 		for (int iter = 1; iter <= highestRadius; iter++) {
 			if (validPosition(i, j + iter)) {
 
 				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i, j + iter))
+					if (checkFireAtLocation(i, j + iter) && immunityCounter<=0)
 						condition = Condition.injured;
 				}
 
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i, j + iter)) {
 						exitX = i;
 						exitY = j + iter;
@@ -315,10 +383,10 @@ public class Human extends Agent {
 			if (validPosition(i + iter, j + iter)) {
 
 				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i + iter, j + iter))
+					if (checkFireAtLocation(i + iter, j + iter) && immunityCounter<=0) 
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i + iter, j + iter)) {
 						exitX = i + iter;
 						exitY = j + iter;
@@ -333,10 +401,10 @@ public class Human extends Agent {
 			if (validPosition(i + iter, j)) {
 
 				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i + iter, j))
+					if (checkFireAtLocation(i + iter, j) && immunityCounter<=0)
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i + iter, j)) {
 						exitX = i + iter;
 						exitY = j;
@@ -350,10 +418,10 @@ public class Human extends Agent {
 			}
 			if (validPosition(i, j - iter)) {
 				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i, j - iter))
+					if (checkFireAtLocation(i, j - iter) && immunityCounter<=0)
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i, j - iter)) {
 						exitX = i;
 						exitY = j - iter;
@@ -365,11 +433,11 @@ public class Human extends Agent {
 				}
 			}
 			if (validPosition(i + iter, j - iter)) {
-				if (this.fireInjuryRadius <= iter) {
+				if (this.fireInjuryRadius <= iter && immunityCounter<=0) {
 					if (checkFireAtLocation(i + iter, j - iter))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i + iter, j - iter)) {
 						exitX = i + iter;
 						exitY = j - iter;
@@ -381,11 +449,11 @@ public class Human extends Agent {
 				}
 			}
 			if (validPosition(i - iter, j)) {
-				if (this.fireInjuryRadius <= iter) {
+				if (this.fireInjuryRadius <= iter && immunityCounter<=0) {
 					if (checkFireAtLocation(i - iter, j))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i - iter, j)) {
 						exitX = i - iter;
 						exitY = j;
@@ -397,11 +465,11 @@ public class Human extends Agent {
 				}
 			}
 			if (validPosition(i - iter, j - iter)) {
-				if (this.fireInjuryRadius <= iter) {
+				if (this.fireInjuryRadius <= iter && immunityCounter<=0) {
 					if (checkFireAtLocation(i - iter, j - iter))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i - iter, j - iter)) {
 						exitX = i - iter;
 						exitY = j - iter;
@@ -413,11 +481,11 @@ public class Human extends Agent {
 				}
 			}
 			if (validPosition(i - iter, j + iter)) {
-				if (this.fireInjuryRadius <= iter) {
+				if (this.fireInjuryRadius <= iter && immunityCounter<=0) {
 					if (checkFireAtLocation(i - iter, j + iter))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter) {
+				if (this.visionRadius <= iter && state != State.knowExit) {
 					if (checkDoorAtLocation(i - iter, j + iter)) {
 						exitX = i - iter;
 						exitY = j + iter;
@@ -508,10 +576,24 @@ public class Human extends Agent {
 	}
 
 	private GridPoint myLocation() {
-
 		return grid.getLocation(this);
 	}
-
+	
+	public GridPoint getLocation(){
+		return myLocation();
+	}
+	
+	public void receiveHealing(){
+		condition=Condition.healthy;
+		immunityCounter=6;
+		got_saved++;
+	}
+	public int times_got_saved(){
+		return got_saved;
+	}
+	public int nr_save_attempts(){
+		return full_save_attempt;
+	}
 	public Zones currentZone(int x, int y) {
 		if (x >= 20 && x <= 22) {
 			if (y >= 1 && y <= 3)
@@ -844,15 +926,86 @@ public class Human extends Agent {
 				grid.moveTo(this, possibleMoves.get(move_index).getX(), possibleMoves.get(move_index).getY());
 				setMoved(true);
 			}
+			else setFatedToDie(true);
 
 		}
 
 	}
-
+	
+	public void setFatedToDie(boolean v){
+		fatedToDie=v;
+	}
+	
+	public void moveToVictim(GridPoint pt) {
+	
+		trySaveVictim();
+		if(savingVictim==null)
+			switch (state) {
+			case inRoom:
+				leaveRooms(myLocation());
+				break;
+			case wandering:
+				moveExplore(myLocation());
+				break;
+			case knowExit:
+				moveToExit(myLocation());
+				break;
+			}
+			
+		GridPoint nextPoint = getNextPoint(pt, ((Human)savingVictim).getLocation());
+		if (nextPoint != null || ((Human)savingVictim).getDead()==1) {
+			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+			trySaveVictim();
+		}
+		else {
+			System.out.println("It's impossible to save the victim "+savingVictim.getLocalName());
+			savingVictim=null;
+			if(exitX!=-1 && exitY!=-1){
+				state=State.knowExit;
+				moveToExit(pt);
+			}
+			else {
+				if(pt.getX()<20){
+					state=State.inRoom;
+					leaveRooms(pt);
+				}
+				else{
+					state=State.wandering;
+					moveExplore(pt);
+				}
+			}
+		}
+		setMoved(true);
+	}
+	
+	public void trySaveVictim(){
+		if(Math.hypot(myLocation().getX() - ((Human)savingVictim).getLocation().getX(), myLocation().getY() - ((Human)savingVictim).getLocation().getY())<2)
+		{
+			System.out.println("saved "+((Human)savingVictim).getLocalName());
+			((Human)savingVictim).receiveHealing();
+			if(exitX!=-1 && exitY!=-1){
+				state=State.knowExit;
+			}
+			else {
+				if(myLocation().getX()<20){
+					state=State.inRoom;
+				}
+				else{
+					state=State.wandering;
+				}
+			}
+			savingVictim=null;
+		}
+	}
+	
 	public void moveToExit(GridPoint pt) {
 		GridPoint nextPoint = getNextPoint(pt, new GridPoint(this.exitX, this.exitY));
 		if (nextPoint != null) {
 			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+		}
+		else{
+			state=State.wandering;
+			moveExplore(pt);
 		}
 		setMoved(true);
 	}
@@ -874,17 +1027,37 @@ public class Human extends Agent {
 				setMoved(true);
 				return;
 			}
+			else{
+				nextPoint = getNextPoint(pt, topRoomExit);
+				if (nextPoint != null) {
+					grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+					setMoved(true);
+					return;
+				}
+				else setFatedToDie(true);
+			}
 		}
+		
 		GridPoint nextPoint = getNextPoint(pt, topRoomExit);
 		if (nextPoint != null) {
 			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
 			setMoved(true);
 			return;
 		}
+		else {
+			nextPoint = getNextPoint(pt, lowerRoomExit);
+			if (nextPoint != null) {
+				grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+				setMoved(true);
+				return;
+			}
+			else setFatedToDie(true);
+		}
+		
 		return;
 
 	}
-
+	
 	private GridPoint getNextPoint(GridPoint pt, GridPoint location) {
 
 		ArrayList<Graph.Edge> lgraph = new ArrayList<Graph.Edge>();
@@ -1053,6 +1226,7 @@ public class Human extends Agent {
 	public int askedCoordinates(){
 		return this.askedCoordinates;
 	}
+
 	public int getDead() {
 		return this.dead;
 	}
