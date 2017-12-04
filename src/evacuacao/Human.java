@@ -120,7 +120,8 @@ public class Human extends Agent {
 				int chanceMove = RandomHelper.nextIntFromTo(0, 100);
 				if (chanceMove <= 40){
 					if(!fatedToDie){
-						ArrayList<AID> rescuers = potentialRescuers(myLocation(),10);
+						ArrayList<AID> rescuers = potentialRescuers(myLocation(),15);
+						System.out.println("RESCUERS LENGTH "+rescuers.size());
 						addBehaviour(new sendHelpRequests(myAgent,rescuers));
 					}
 					else System.out.println("I " + myAgent.getLocalName() + "am now fated to die");
@@ -203,7 +204,16 @@ public class Human extends Agent {
 			return querySent;
 		}
 	}
-
+	
+	public Agent lookupAgent(AID aid) {
+		for(Object obj : context.getObjects(Agent.class)) {
+			if(((Agent) obj).getAID().equals(aid)) {
+				return (Agent) obj;
+			}
+		}
+		return null;
+	}
+	
 	class receiveRequests extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
@@ -227,9 +237,9 @@ public class Human extends Agent {
 							askedCoordinates=1;
 						}
 						if (action instanceof RescueMe){
-							Network<Object> net=(Network<Object>)context.getProjection("Help Request Network");
-							savingVictim=((RescueMe)action).getVictim();
-							net.addEdge(myAgent, savingVictim);
+							System.out.println(myAgent.getLocalName()+ " GOING TO SAVE VICTIM: " +msg.getSender().getLocalName());
+							savingVictim=lookupAgent(((RescueMe)action).getMyself());
+							((Network<Object>)context.getProjection("Help Request Network")).addEdge(myAgent, savingVictim);
 							condition=Condition.healthy;
 							state = State.helping;
 							full_save_attempt++;
@@ -237,12 +247,13 @@ public class Human extends Agent {
 						}
 						break;
 					 case (ACLMessage.ACCEPT_PROPOSAL):
-						 if(savior!=null){
+						 if(savior==null){
+							 System.out.println(msg.getSender().getLocalName()+ " DEFINING AS SAVIOR: " +myAgent.getLocalName());
 							 ACLMessage reply=msg.createReply();
 							 reply.setPerformative(ACLMessage.REQUEST);
 							try {
 								getContentManager().fillContent(reply,
-										new Action(msg.getSender(), new RescueMe(msg.getSender(), myAgent)));
+										new Action(msg.getSender(), new RescueMe(msg.getSender(), myAgent.getAID())));
 								send(reply);
 								savior=msg.getSender();
 							} catch (Exception ex) {
@@ -253,14 +264,17 @@ public class Human extends Agent {
 					 case (ACLMessage.REJECT_PROPOSAL):
 						 break;
 					 case (ACLMessage.PROPOSE):
+						 System.out.println(myAgent.getLocalName()+" Received help request from "+msg.getSender().getLocalName());
 						 ACLMessage reply = msg.createReply();
 					 	 HelpResponse resp;
 						 if(altruism && condition!=Condition.injured){
+							 System.out.println(myAgent.getLocalName()+" ACCEPTING Received help request from "+msg.getSender().getLocalName());
 							 reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
 							 resp=new HelpResponse(true);
 							 reply.setContent(resp.getMessage());
 						 }
 						 else{
+							 System.out.println(myAgent.getLocalName()+" REJECTING Received help request from "+msg.getSender().getLocalName());
 							 reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
 							 resp=new HelpResponse(false);
 							 reply.setContent(resp.getMessage());
@@ -297,6 +311,7 @@ public class Human extends Agent {
 			msgSend.setOntology(evacOntology.getName());
 			// Send message
 			send(msgSend);
+			
 		}
 	}
 
@@ -939,7 +954,7 @@ public class Human extends Agent {
 	public void moveToVictim(GridPoint pt) {
 	
 		trySaveVictim();
-		if(savingVictim==null)
+		if(savingVictim==null){
 			switch (state) {
 			case inRoom:
 				leaveRooms(myLocation());
@@ -951,6 +966,8 @@ public class Human extends Agent {
 				moveToExit(myLocation());
 				break;
 			}
+			return;
+		}
 			
 		GridPoint nextPoint = getNextPoint(pt, ((Human)savingVictim).getLocation());
 		if (nextPoint != null || ((Human)savingVictim).getDead()==1) {

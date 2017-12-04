@@ -2,18 +2,20 @@ package evacuacao.ontology;
 
 import jade.content.AgentAction;
 import jade.core.AID;
-import sajas.core.Agent;
 
 public class RescueMe implements AgentAction{
 	private static final long serialVersionUID = 1L;
 
 	private String message;
-	private Agent myself;
+	private AID myself;
+	
+	public RescueMe(){
+		
+	}
 
-
-	public RescueMe(AID rescuer,Agent myself) {
+	public RescueMe(AID rescuer,AID myself) {
 		this.message="Please assist me "+rescuer.getLocalName();
-		this.myself=myself;
+		setMyself(myself);
 	}
 	
 	public String getMessage() {
@@ -23,10 +25,10 @@ public class RescueMe implements AgentAction{
 		this.message=msg;
 	}
 	
-	public Agent getVictim(){
+	public AID getMyself(){
 		return myself;
 	}
-	public void setMyself(Agent myself){
+	public void setMyself(AID myself){
 		this.myself=myself;
 	}
 }

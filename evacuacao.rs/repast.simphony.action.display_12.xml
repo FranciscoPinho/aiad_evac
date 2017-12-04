@@ -3,7 +3,15 @@
   <type>2D</type>
   <styles>
     <entry>
+      <string>evacuacao.Door</string>
+      <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
+    </entry>
+    <entry>
       <string>evacuacao.SelfishHuman</string>
+      <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
+    </entry>
+    <entry>
+      <string>evacuacao.Wall</string>
       <string>repast.simphony.visualization.editedStyle.EditedStyle2D</string>
     </entry>
     <entry>
@@ -21,8 +29,16 @@
   </styles>
   <editedStyles>
     <entry>
+      <string>evacuacao.Door</string>
+      <string>evacuacao.Door.style_3.xml</string>
+    </entry>
+    <entry>
       <string>evacuacao.SelfishHuman</string>
       <string>evacuacao.SelfishHuman.style_3.xml</string>
+    </entry>
+    <entry>
+      <string>evacuacao.Wall</string>
+      <string>evacuacao.Wall.style_1.xml</string>
     </entry>
     <entry>
       <string>evacuacao.DeadHuman</string>
@@ -57,27 +73,35 @@
     <pType>LAST</pType>
     <duration>-1.0</duration>
     <frequency>REPEAT</frequency>
-    <hashCode>1589972233</hashCode>
+    <hashCode>1837890243</hashCode>
   </schedParams>
   <layoutClassName>foo.bar.baz</layoutClassName>
   <layoutProjection>grid</layoutProjection>
   <layoutInterval>0</layoutInterval>
   <layerOrder>
     <entry>
+      <string>evacuacao.Door</string>
+      <int>5</int>
+    </entry>
+    <entry>
       <string>evacuacao.SelfishHuman</string>
-      <int>1</int>
-    </entry>
-    <entry>
-      <string>evacuacao.DeadHuman</string>
-      <int>3</int>
-    </entry>
-    <entry>
-      <string>evacuacao.AltruisticHuman</string>
       <int>2</int>
     </entry>
     <entry>
-      <string>evacuacao.Fire</string>
+      <string>evacuacao.Wall</string>
       <int>0</int>
+    </entry>
+    <entry>
+      <string>evacuacao.DeadHuman</string>
+      <int>4</int>
+    </entry>
+    <entry>
+      <string>evacuacao.AltruisticHuman</string>
+      <int>3</int>
+    </entry>
+    <entry>
+      <string>evacuacao.Fire</string>
+      <int>1</int>
     </entry>
   </layerOrder>
   <projections>
