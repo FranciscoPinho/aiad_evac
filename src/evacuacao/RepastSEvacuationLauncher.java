@@ -25,6 +25,7 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 	private ContainerController mainContainer;
 	private Context<Object> context;
 	private Grid<Object> grid;
+	private int accidentY;
 	
 	public static Agent getAgent(Context<?> context, AID aid) {
 		for(Object obj : context.getObjects(Agent.class)) {
@@ -64,19 +65,19 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		int radiusVision = (Integer) params.getValue("radius_vision");
 		int prob = (Integer) params.getValue("propagation_prob");
 		int injuryRadius = (Integer) params.getValue("fire_injury_radius");
-		int altper = (Integer) params.getValue("altruistic_probability");
+		int altper = (Integer) params.getValue("altruistic_percentage");
 
 		generateExits(grid,context,doorsCount);
 		createHumans(grid,context,humanCount,radiusVision,injuryRadius,altper);
-		createSecurity(grid,context,securityCount);
 		startAccident(grid,context,0,0,prob);
+		createSecurity(grid,context,securityCount);
 	}
 
 	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision, int injuryRadius, int altruisticPercent){
+		int nrAltruists = (altruisticPercent*humanCount)/100;
 		for (int i = 0; i < humanCount; i++) {
-			int altruism_prob = RandomHelper.nextIntFromTo(1,100);
 			Human newHuman;
-			if(altruism_prob<=altruisticPercent)
+			if(i<nrAltruists)
 				newHuman = new AltruisticHuman(grid, context,State.inRoom,Condition.healthy,radiusVision,injuryRadius);
 			else newHuman = new SelfishHuman(grid, context,State.inRoom,Condition.healthy,radiusVision,injuryRadius);
 			context.add(newHuman);
@@ -93,6 +94,7 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 				e.printStackTrace();
 			}
 		}
+		
 	}
 	
 	private void startAccident(Grid<Object> grid, Context<Object> context,int x,int y,int propagationProb){
@@ -103,10 +105,25 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 				startY = RandomHelper.nextIntFromTo(1, grid.getDimensions().getHeight() - 2);
 			}
 			new Fire(grid,context,startX,startY,propagationProb);
+			accidentY=startY;
 	}
 	
 	private void createSecurity(Grid<Object> grid, Context<Object> context, int securityCount){
-		for (int i = 0; i < securityCount; i++) {
+		//createSentinelSecurity
+		Security sentinel;
+		if(accidentY>12)
+		sentinel = new Security(grid,context,true,20);
+		else sentinel = new Security(grid,context,true,8);
+		context.add(sentinel);
+		grid.moveTo(sentinel,31, 12);
+		try {
+			mainContainer.acceptNewAgent("security" + 0, sentinel).start();
+		} catch (StaleProxyException e) {
+			e.printStackTrace();
+		}
+		
+		//createRegularSecurity
+		for (int i = 1; i < securityCount; i++) {
 			Security newSecurity = new Security(grid, context);
 			context.add(newSecurity);
 			int startX = RandomHelper.nextIntFromTo(grid.getDimensions().getWidth() - 20, grid.getDimensions().getWidth() - 1);
@@ -250,7 +267,6 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 	@Override
 	public Context<?>build(Context<Object> context) {
 		// http://repast.sourceforge.net/docs/RepastJavaGettingStarted.pdf
-		
 		GridFactory gridFactory = GridFactoryFinder.createGridFactory(null);
 		Grid<Object> grid = gridFactory.createGrid("grid", context,
 				new GridBuilderParameters<Object>(new WrapAroundBorders(), new SimpleGridAdder<Object>(), true, 40, 25));

@@ -24,32 +24,28 @@ import sajas.core.behaviours.SimpleBehaviour;
 public class Security extends Agent {
 	private Grid<Object> grid;
 	private boolean moved;
-	private int closestExitX=-1, closestExitY = -1;
+	private int closestExitX = -1, closestExitY = -1;
 	private Context<Object> context;
 	private Codec codec;
 	private Ontology evacOntology;
 	private int dead = 0;
 	protected int escaped = 0;
+	protected GridPoint sentinelLocation;
+	protected answerDoorCoordinateRequests answerBehavior;
+	protected boolean arrived=false,sentinel = false;
 
 	public Security(Grid<Object> grid, Context<Object> context) {
 		super();
 		this.grid = grid;
 		this.context = context;
 	}
-
-	public int deathStatistics() {
-		return dead;
-	}
-	public int survivalStatistics() {
-		if(dead==1)
-			return 0;
-		else return 1;
-	}
-	public void setDead(int dead) {
-		this.dead = dead;
-	}
-	public int getDead() {
-		return dead;
+	
+	public Security(Grid<Object> grid, Context<Object> context, boolean sent, int accidentDoorY) {
+		super();
+		this.grid = grid;
+		this.context = context;
+		this.sentinel=sent;
+		this.sentinelLocation = new GridPoint(18,accidentDoorY);
 	}
 	@SuppressWarnings("unchecked")
 	@Override
@@ -59,8 +55,9 @@ public class Security extends Agent {
 		evacOntology = EvacuationOntology.getInstance();
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(evacOntology);
+		answerBehavior = new answerDoorCoordinateRequests(this);
 		addBehaviour(new movementBehaviour(this));
-		addBehaviour(new answerDoorCoordinateRequests(this));
+		addBehaviour(answerBehavior);
 	}
 
 	class movementBehaviour extends SimpleBehaviour {
@@ -71,37 +68,43 @@ public class Security extends Agent {
 		}
 
 		public void action() {
-
-			/*
-			 * GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid,
-			 * myLocation(), Human.class, 1, 1); List<GridCell<Human>> gridCells
-			 * = nghCreator.getNeighborhood(true);
-			 * SimUtilities.shuffle(gridCells, RandomHelper.getUniform());
-			 */	
-			if (closestExitX == -1 && closestExitY == -1) {
-				closestDoor();
-			}
-			int counter=0;
-			for (Object obj : grid.getObjects()) {
-				if (obj instanceof Human) {
-					if(((Human)obj).getDead()==0 && ((Human)obj).escaped==0)
-						counter++;
+			closestDoor();
+			if(!arrived && sentinel){
+				if(myLocation().getX()==sentinelLocation.getX() && myLocation().getY()==sentinelLocation.getY()){
+					arrived=true;
+					return;
 				}
+				if (fireTooStrong() || fireNearby(myLocation()))
+					moveToExit(myLocation());
+				else moveToPoint(myLocation(),sentinelLocation);
 			}
-
-			if (counter == 0)
-				moveTowards(myLocation());
+			else{
+				int counter = 0;
+				for (Object obj : grid.getObjects()) {
+					if (obj instanceof Human) {
+						if (((Human) obj).getDead() == 0 && ((Human) obj).escaped == 0)
+							counter++;
+					}
+				}
+	
+				if (counter == 0 || fireTooStrong() || fireNearby(myLocation()))
+					moveToExit(myLocation());
+			}
 		}
 
 		@Override
 		public boolean done() {
 			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
-				escaped=1;
+				escaped = 1;
+				myAgent.removeBehaviour(this);
+				myAgent.removeBehaviour(answerBehavior);
 				isSimulationOver();
 				return true;
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
+				myAgent.removeBehaviour(this);
+				myAgent.removeBehaviour(answerBehavior);
 				DeadHuman dead = new DeadHuman();
 				context.add(dead);
 				grid.moveTo(dead, myLocation().getX(), myLocation().getY());
@@ -113,7 +116,7 @@ public class Security extends Agent {
 		}
 
 	}
-
+	
 	class answerDoorCoordinateRequests extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
@@ -125,18 +128,12 @@ public class Security extends Agent {
 		}
 
 		public void action() {
-
-			/*
-			 * GridCellNgh<Human> nghCreator = new GridCellNgh<Human>(grid,
-			 * myLocation(), Human.class, 1, 1); List<GridCell<Human>> gridCells
-			 * = nghCreator.getNeighborhood(true);
-			 * SimUtilities.shuffle(gridCells, RandomHelper.getUniform());
-			 */
 			ACLMessage msg = receive(template);
-			
+
 			if (msg != null) {
 				if (msg.getContent().equals(new ExitRequest().getRequest())) {
-					//System.out.println("Received Request from "+msg.getSender().getLocalName());
+					// System.out.println("Received Request from
+					// "+msg.getSender().getLocalName());
 					if (closestExitX != -1 && closestExitY != -1) {
 						ACLMessage reply = msg.createReply();
 						reply.setPerformative(ACLMessage.REQUEST);
@@ -154,14 +151,40 @@ public class Security extends Agent {
 
 	}
 
+	private boolean fireNearby(GridPoint pt) {
+		int i = pt.getX();
+		int j = pt.getY();
+
+		for (int iter = 1; iter <= 2; iter++) {
+			if (checkFireAtLocation(i, j + iter))
+				return true;
+			if (checkFireAtLocation(i + iter, j + iter))
+				return true;
+			if (checkFireAtLocation(i + iter, j))
+				return true;
+			if (checkFireAtLocation(i, j - iter))
+				return true;
+			if (checkFireAtLocation(i + iter, j - iter))
+				return true;
+			if (checkFireAtLocation(i - iter, j))
+				return true;
+			if (checkFireAtLocation(i - iter, j - iter))
+				return true;
+			if (checkFireAtLocation(i - iter, j + iter))
+				return true;
+		}
+		
+		return false;
+	}
+
 	private void isSimulationOver() {
 		for (Object obj : grid.getObjects()) {
-			if (obj instanceof Security){
-				if(((Security)obj).getDead()==0 && ((Security)obj).escaped==0)
+			if (obj instanceof Security) {
+				if (((Security) obj).getDead() == 0 && ((Security) obj).escaped == 0)
 					return;
 			}
-			if(obj instanceof Human) {
-				if(((Human)obj).getDead()==0 && ((Human)obj).escaped==0)
+			if (obj instanceof Human) {
+				if (((Human) obj).getDead() == 0 && ((Human) obj).escaped == 0)
 					return;
 			}
 		}
@@ -191,10 +214,19 @@ public class Security extends Agent {
 		return fire_found;
 	}
 
+	private boolean fireTooStrong() {
+		// GridPoint topRoomExit = new GridPoint(20, 20);
+		// GridPoint lowerRoomExit = new GridPoint(20, 8);
+		if (checkFireAtLocation(20, 20) && checkFireAtLocation(20, 8))
+			return true;
+		return false;
+	}
+
 	private GridPoint myLocation() {
 		return grid.getLocation(this);
 	}
-	public void closestDoor(){
+
+	public void closestDoor() {
 		double distToExit = 999999;
 		int indexDoor = -1;
 
@@ -215,17 +247,45 @@ public class Security extends Agent {
 				}
 			}
 		}
-		if(indexDoor!=-1){
+		if (indexDoor != -1) {
 			closestExitX = doors.get(indexDoor).getLocation().getX();
 			closestExitY = doors.get(indexDoor).getLocation().getY();
 		}
 	}
-	public void moveTowards(GridPoint pt) {	
-			GridPoint nextPoint = getNextPoint(pt, new GridPoint(closestExitX,closestExitY));
-			if (nextPoint != null) {
-				grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
-				setMoved(true);
-			}
+
+	public int deathStatistics() {
+		return dead;
+	}
+
+	public int survivalStatistics() {
+		if (dead == 1)
+			return 0;
+		else
+			return 1;
+	}
+
+	public void setDead(int dead) {
+		this.dead = dead;
+	}
+
+	public int getDead() {
+		return dead;
+	}
+
+	public void moveToExit(GridPoint pt) {
+		GridPoint nextPoint = getNextPoint(pt, new GridPoint(closestExitX, closestExitY));
+		if (nextPoint != null) {
+			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+			setMoved(true);
+		}
+	}
+	
+	public void moveToPoint(GridPoint pt, GridPoint destination) {
+		GridPoint nextPoint = getNextPoint(pt, destination);
+		if (nextPoint != null) {
+			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
+			setMoved(true);
+		}
 	}
 
 	private GridPoint getNextPoint(GridPoint pt, GridPoint location) {

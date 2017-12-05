@@ -71,6 +71,8 @@ public class Human extends Agent {
 	protected int got_saved = 0;
 	protected int full_save_attempt = 0;
 	protected int immunityCounter = 0;
+	protected queryDoorCoordinates querybehavior;
+	protected receiveRequests receivebehavior;
 
 	public Human(Grid<Object> grid, Context<Object> context, State state, Condition condition, boolean altruism,
 			int visionRadius, int fireInjuryRadius) {
@@ -83,6 +85,7 @@ public class Human extends Agent {
 		this.visionRadius = visionRadius;
 		this.fireInjuryRadius = fireInjuryRadius;
 		this.fatedToDie = false;
+
 	}
 
 	@Override
@@ -92,10 +95,11 @@ public class Human extends Agent {
 		evacOntology = EvacuationOntology.getInstance();
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(evacOntology);
-
+		this.querybehavior = new queryDoorCoordinates(this);
+		this.receivebehavior = new receiveRequests(this);
 		addBehaviour(new movementBehaviour(this));
-		addBehaviour(new queryDoorCoordinates(this));
-		addBehaviour(new receiveRequests(this));
+		addBehaviour(querybehavior);
+		addBehaviour(receivebehavior);
 	}
 
 	class movementBehaviour extends SimpleBehaviour {
@@ -108,6 +112,13 @@ public class Human extends Agent {
 		public void action() {
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
+				cleanupConnections();
+				return;
+			}
+
+			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
+				escaped = 1;
+				cleanupConnections();
 				return;
 			}
 
@@ -154,18 +165,22 @@ public class Human extends Agent {
 		public boolean done() {
 			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
 				escaped = 1;
+				myAgent.removeBehaviour(querybehavior);
+				myAgent.removeBehaviour(receivebehavior);
+				myAgent.removeBehaviour(this);
+				cleanupConnections();
 				isSimulationOver();
-				if (connectionSecurity != null)
-					((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionSecurity);
 				return true;
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
+				myAgent.removeBehaviour(querybehavior);
+				myAgent.removeBehaviour(receivebehavior);
+				myAgent.removeBehaviour(this);
+				cleanupConnections();
 				DeadHuman dead = new DeadHuman();
 				context.add(dead);
 				grid.moveTo(dead, myLocation().getX(), myLocation().getY());
-				if (connectionSecurity != null)
-					((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionSecurity);
 				isSimulationOver();
 				return true;
 			}
@@ -202,15 +217,6 @@ public class Human extends Agent {
 		}
 	}
 
-	public Agent lookupAgent(AID aid) {
-		for (Object obj : context.getObjects(Agent.class)) {
-			if (((Agent) obj).getAID().equals(aid)) {
-				return (Agent) obj;
-			}
-		}
-		return null;
-	}
-
 	class receiveRequests extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
@@ -237,15 +243,18 @@ public class Human extends Agent {
 							gotDoorCoordinates = true;
 						}
 						if (action instanceof RescueMe) {
-							System.out.println(myAgent.getLocalName() + " GOING TO SAVE VICTIM: "
-									+ msg.getSender().getLocalName());
-							savingVictim = lookupAgent(((RescueMe) action).getMyself());
-							connectionVictim = ((Network<Object>) context.getProjection("Help Request Network"))
-									.addEdge(myAgent, savingVictim);
-							condition = Condition.healthy;
-							state = State.helping;
-							full_save_attempt++;
-							immunityCounter = 6;
+							if (dead == 0 && escaped == 0) {
+								// System.out.println(myAgent.getLocalName() + "
+								// GOING TO SAVE VICTIM: "
+								// + msg.getSender().getLocalName());
+								savingVictim = lookupAgent(((RescueMe) action).getMyself());
+								connectionVictim = ((Network<Object>) context.getProjection("Help Request Network"))
+										.addEdge(myAgent, savingVictim);
+								condition = Condition.healthy;
+								state = State.helping;
+								full_save_attempt++;
+								immunityCounter = 6;
+							}
 						}
 						break;
 					case (ACLMessage.ACCEPT_PROPOSAL):
@@ -269,15 +278,18 @@ public class Human extends Agent {
 								+ msg.getSender().getLocalName());
 						ACLMessage reply = msg.createReply();
 						HelpResponse resp;
-						if (altruism && condition != Condition.injured && savingVictim == null) {
-							System.out.println(myAgent.getLocalName() + " ACCEPTING Received help request from "
-									+ msg.getSender().getLocalName());
+						if (altruism && condition != Condition.injured && savingVictim == null && dead == 0
+								&& escaped == 0) {
+							// System.out.println(myAgent.getLocalName() + "
+							// ACCEPTING Received help request from "
+							// + msg.getSender().getLocalName());
 							reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
 							resp = new HelpResponse(true);
 							reply.setContent(resp.getMessage());
 						} else {
-							System.out.println(myAgent.getLocalName() + " REJECTING Received help request from "
-									+ msg.getSender().getLocalName());
+							// System.out.println(myAgent.getLocalName() + "
+							// REJECTING Received help request from "
+							// + msg.getSender().getLocalName());
 							reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
 							resp = new HelpResponse(false);
 							reply.setContent(resp.getMessage());
@@ -317,6 +329,31 @@ public class Human extends Agent {
 				send(msgSend);
 			}
 		}
+	}
+
+	/**
+	 * Removes unneeded edges from network projection
+	 */
+	private void cleanupConnections() {
+		if (connectionSecurity != null)
+			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionSecurity);
+		if (connectionVictim != null)
+			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
+	}
+	
+	/**
+	 * Finds an agent based on aid
+	 * 
+	 * @param aid
+	 * @return Agent with AID aid
+	 */
+	public Agent lookupAgent(AID aid) {
+		for (Object obj : context.getObjects(Agent.class)) {
+			if (((Agent) obj).getAID().equals(aid)) {
+				return (Agent) obj;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -390,8 +427,8 @@ public class Human extends Agent {
 		for (int iter = 1; iter <= highestRadius; iter++) {
 			if (validPosition(i, j + iter) && !wallfound1) {
 
-				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i, j + iter) && immunityCounter <= 0)
+				if (this.fireInjuryRadius <= iter  && immunityCounter <= 0) {
+					if (checkFireAtLocation(i, j + iter))
 						condition = Condition.injured;
 				}
 
@@ -410,8 +447,8 @@ public class Human extends Agent {
 				wallfound1 = true;
 			if (validPosition(i + iter, j + iter) && !wallfound2) {
 
-				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i + iter, j + iter) && immunityCounter <= 0)
+				if (this.fireInjuryRadius <= iter && immunityCounter <= 0) {
+					if (checkFireAtLocation(i + iter, j + iter))
 						condition = Condition.injured;
 				}
 				if (this.visionRadius <= iter && state != State.knowExit) {
@@ -429,8 +466,8 @@ public class Human extends Agent {
 				wallfound2 = true;
 			if (validPosition(i + iter, j) && !wallfound3) {
 
-				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i + iter, j) && immunityCounter <= 0)
+				if (this.fireInjuryRadius <= iter && immunityCounter <= 0) {
+					if (checkFireAtLocation(i + iter, j) )
 						condition = Condition.injured;
 				}
 				if (this.visionRadius <= iter && state != State.knowExit) {
@@ -447,8 +484,8 @@ public class Human extends Agent {
 			} else
 				wallfound3 = true;
 			if (validPosition(i, j - iter) && !wallfound4) {
-				if (this.fireInjuryRadius <= iter) {
-					if (checkFireAtLocation(i, j - iter) && immunityCounter <= 0)
+				if (this.fireInjuryRadius <= iter && immunityCounter <= 0) {
+					if (checkFireAtLocation(i, j - iter) )
 						condition = Condition.injured;
 				}
 				if (this.visionRadius <= iter && state != State.knowExit) {
@@ -1267,7 +1304,7 @@ public class Human extends Agent {
 	public int getDead() {
 		return this.dead;
 	}
-
+	
 	public void setDead(int dead) {
 		this.dead = dead;
 	}
