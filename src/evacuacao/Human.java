@@ -61,7 +61,7 @@ public class Human extends Agent {
 	private int exitX = -1;
 	private int exitY = -1;
 	private AID securityAID = null;
-	private AID savior = null;
+	private Agent savior = null;
 	private Agent savingVictim = null;
 	private Codec codec;
 	private Ontology evacOntology;
@@ -122,8 +122,8 @@ public class Human extends Agent {
 				return;
 			}
 
-			if (state != State.helping)
-				if (myLocation().getX() > grid.getDimensions().getWidth() - 21 && state != State.knowExit)
+			if (state != State.helping && state != State.knowExit)
+				if (myLocation().getX() > grid.getDimensions().getWidth() - 21 )
 					state = State.wandering;
 
 			// lookup in visionRadius to find exit or security guard or to be
@@ -133,8 +133,13 @@ public class Human extends Agent {
 
 			// if agent is injured, he has 40% chance of not moving
 			if (condition == Condition.injured) {
+				if(savior!=null){
+					if(((Human)savior).getDead()==1){
+						savior=null;
+					}
+				}
 				if (!fatedToDie && dead == 0) {
-					ArrayList<AID> rescuers = potentialRescuers(myLocation(), 10);
+					ArrayList<AID> rescuers = potentialRescuers(myLocation(), 12);
 					addBehaviour(new sendHelpRequests(myAgent, rescuers));
 				}
 				int chanceMove = RandomHelper.nextIntFromTo(0, 100);
@@ -167,7 +172,6 @@ public class Human extends Agent {
 				escaped = 1;
 				myAgent.removeBehaviour(querybehavior);
 				myAgent.removeBehaviour(receivebehavior);
-				myAgent.removeBehaviour(this);
 				cleanupConnections();
 				isSimulationOver();
 				return true;
@@ -176,7 +180,6 @@ public class Human extends Agent {
 				setDead(1);
 				myAgent.removeBehaviour(querybehavior);
 				myAgent.removeBehaviour(receivebehavior);
-				myAgent.removeBehaviour(this);
 				cleanupConnections();
 				DeadHuman dead = new DeadHuman();
 				context.add(dead);
@@ -189,7 +192,7 @@ public class Human extends Agent {
 		}
 	}
 
-	class queryDoorCoordinates extends SimpleBehaviour {
+	class queryDoorCoordinates extends OneShotBehaviour {
 		private static final long serialVersionUID = 1L;
 
 		public queryDoorCoordinates(Agent a) {
@@ -202,18 +205,12 @@ public class Human extends Agent {
 				ACLMessage msgSend = new ACLMessage(ACLMessage.REQUEST);
 				msgSend.addReceiver(securityAID);
 				msgSend.setContent(req.getRequest());
-				// System.out.println("SENT MESSAGE TO: "+securityAID.toString()
-				// + " - " + msgSend.getContent());
+				 System.out.println("SENT MESSAGE TO: "+securityAID.getLocalName() + " - " + msgSend.getContent());
 				msgSend.setLanguage(codec.getName());
 				msgSend.setOntology(evacOntology.getName());
 				// Send message
 				send(msgSend);
 			}
-		}
-
-		@Override
-		public boolean done() {
-			return gotDoorCoordinates;
 		}
 	}
 
@@ -247,7 +244,9 @@ public class Human extends Agent {
 								// System.out.println(myAgent.getLocalName() + "
 								// GOING TO SAVE VICTIM: "
 								// + msg.getSender().getLocalName());
-								savingVictim = lookupAgent(((RescueMe) action).getMyself());
+								savingVictim = lookupAgent(msg.getSender());
+								if(((Human)savingVictim).getDead()==1)
+									return;
 								connectionVictim = ((Network<Object>) context.getProjection("Help Request Network"))
 										.addEdge(myAgent, savingVictim);
 								condition = Condition.healthy;
@@ -265,7 +264,7 @@ public class Human extends Agent {
 								getContentManager().fillContent(reply,
 										new Action(msg.getSender(), new RescueMe(msg.getSender(), myAgent.getAID())));
 								send(reply);
-								savior = msg.getSender();
+								savior = lookupAgent(msg.getSender());
 							} catch (Exception ex) {
 								ex.printStackTrace();
 							}
@@ -274,8 +273,8 @@ public class Human extends Agent {
 					case (ACLMessage.REJECT_PROPOSAL):
 						break;
 					case (ACLMessage.PROPOSE):
-						System.out.println(myAgent.getLocalName() + " Received help request from "
-								+ msg.getSender().getLocalName());
+						//System.out.println(myAgent.getLocalName() + " Received help request from "
+						//		+ msg.getSender().getLocalName());
 						ACLMessage reply = msg.createReply();
 						HelpResponse resp;
 						if (altruism && condition != Condition.injured && savingVictim == null && dead == 0
@@ -439,8 +438,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i, j + iter) != null)
+					if (checkSecurityAtLocation(i, j + iter) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 
 			} else
@@ -458,8 +459,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i + iter, j + iter) != null)
+					if (checkSecurityAtLocation(i + iter, j + iter) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 
 			} else
@@ -477,8 +480,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i + iter, j) != null)
+					if (checkSecurityAtLocation(i + iter, j) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 
 			} else
@@ -495,8 +500,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i, j - iter) != null)
+					if (checkSecurityAtLocation(i, j - iter) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 			} else
 				wallfound4 = true;
@@ -512,8 +519,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i + iter, j - iter) != null)
+					if (checkSecurityAtLocation(i + iter, j - iter) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 			} else
 				wallfound5 = true;
@@ -529,8 +538,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i - iter, j) != null)
+					if (checkSecurityAtLocation(i - iter, j) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 			} else
 				wallfound6 = true;
@@ -546,8 +557,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i - iter, j - iter) != null)
+					if (checkSecurityAtLocation(i - iter, j - iter) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 			} else
 				wallfound7 = true;
@@ -563,8 +576,10 @@ public class Human extends Agent {
 						state = State.knowExit;
 						return true;
 					}
-					if (checkSecurityAtLocation(i - iter, j + iter) != null)
+					if (checkSecurityAtLocation(i - iter, j + iter) != null && !gotDoorCoordinates){
+						addBehaviour(querybehavior);
 						return true;
+					}
 				}
 			} else
 				wallfound8 = true;
@@ -587,6 +602,7 @@ public class Human extends Agent {
 					return;
 			}
 		}
+		((Network<Object>) context.getProjection("Help Request Network")).removeEdges();
 		RunEnvironment.getInstance().endRun();
 	}
 
@@ -831,125 +847,154 @@ public class Human extends Agent {
 				if (!moveUp(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.topRight) {
 				if (!moveDown(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case bottomLeft:
 			if (this.fromZone == Zones.bottomRight) {
 				if (!moveLeft(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.topLeft) {
 				if (!moveDown(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.bottomWall) {
 				if (!moveLeft(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case bottomRight:
 			if (this.fromZone == Zones.topRight) {
 				if (!moveDown(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.bottomLeft) {
 				if (!moveRight(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 
 			if (this.fromZone == Zones.bottomWall) {
 				if (!moveRight(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.RightWall) {
 				if (moveDown(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case bottomWall:
 			if (this.fromZone == Zones.bottomRight) {
 				if (!moveLeft(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.bottomLeft) {
 				if (!moveRight(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.topWall) {
 				if (!moveDown(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case topLeft:
 			if (this.fromZone == Zones.topRight) {
 				if (!moveLeft(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.bottomLeft) {
 				if (!moveUp(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.topWall) {
 				if (!moveLeft(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case topRight:
 			if (this.fromZone == Zones.topLeft) {
 				if (!moveRight(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.RightWall) {
 				if (!moveUp(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.bottomRight) {
 				if (!moveUp(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.topWall) {
 				if (!moveRight(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case topWall:
 			if (this.fromZone == Zones.topRight) {
 				if (!moveDown(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.topLeft) {
 				if (!moveRight(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
 			if (this.fromZone == Zones.bottomWall) {
 				if (!moveUp(i, j)) {
 					this.nextZone = Zones.nowhere;
 				}
+				else return;
 			}
+			this.nextZone = Zones.nowhere;
 			break;
 		case nowhere:
 			break;
@@ -1017,6 +1062,7 @@ public class Human extends Agent {
 
 		trySaveVictim();
 		if (savingVictim == null) {
+			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
 			switch (state) {
 			case inRoom:
 				leaveRooms(myLocation());
@@ -1038,7 +1084,7 @@ public class Human extends Agent {
 		} else {
 			System.out.println("It's impossible to save the victim " + savingVictim.getLocalName());
 			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
-			savingVictim = null;
+			
 			if (exitX != -1 && exitY != -1) {
 				state = State.knowExit;
 				moveToExit(pt);
@@ -1051,16 +1097,17 @@ public class Human extends Agent {
 					moveExplore(pt);
 				}
 			}
+			savingVictim = null;
 		}
 		setMoved(true);
 	}
 
 	public void trySaveVictim() {
-		if (Math.hypot(myLocation().getX() - ((Human) savingVictim).getLocation().getX(),
-				myLocation().getY() - ((Human) savingVictim).getLocation().getY()) < 2) {
+		if (Math.abs(myLocation().getX() - ((Human) savingVictim).getLocation().getX()) < 2
+				&& Math.abs(myLocation().getY() - ((Human) savingVictim).getLocation().getY()) < 2) {
 			System.out.println("saved " + ((Human) savingVictim).getLocalName());
-			((Human) savingVictim).receiveHealing();
 			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
+			((Human) savingVictim).receiveHealing();
 			if (exitX != -1 && exitY != -1) {
 				state = State.knowExit;
 			} else {

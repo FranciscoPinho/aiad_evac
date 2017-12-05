@@ -27,7 +27,7 @@ public class Fire {
 		this.context.add(this);
 		this.grid.moveTo(this,x,y);
 	}
-	@ScheduledMethod(start = 5, interval = 6)
+	@ScheduledMethod(start = 3, interval = 5)
 	public void step() {
 		int prob= RandomHelper.nextIntFromTo(0,100);
 		if(prob<=propagationProb+propagationInflation){

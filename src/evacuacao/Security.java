@@ -15,6 +15,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
+import repast.simphony.space.graph.Network;
 import repast.simphony.space.grid.Grid;
 import repast.simphony.space.grid.GridPoint;
 import sajas.core.Agent;
@@ -96,14 +97,12 @@ public class Security extends Agent {
 		public boolean done() {
 			if (checkDoorAtLocation(myLocation().getX(), myLocation().getY())) {
 				escaped = 1;
-				myAgent.removeBehaviour(this);
 				myAgent.removeBehaviour(answerBehavior);
 				isSimulationOver();
 				return true;
 			}
 			if (checkFireAtLocation(myLocation().getX(), myLocation().getY())) {
 				setDead(1);
-				myAgent.removeBehaviour(this);
 				myAgent.removeBehaviour(answerBehavior);
 				DeadHuman dead = new DeadHuman();
 				context.add(dead);
@@ -188,6 +187,7 @@ public class Security extends Agent {
 					return;
 			}
 		}
+		((Network<Object>) context.getProjection("Help Request Network")).removeEdges();
 		RunEnvironment.getInstance().endRun();
 	}
 

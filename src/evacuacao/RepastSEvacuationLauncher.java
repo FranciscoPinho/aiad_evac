@@ -50,13 +50,6 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 	}
 	
 	private void launchAgents() {
-		AID resultsCollectorAID = null;
-		if(USE_RESULTS_COLLECTOR) {
-			// create results collector
-			//ResultsCollector resultsCollector = new ResultsCollector(N_CONSUMERS + N_CONSUMERS_FILTERING_PROVIDERS);
-			//mainContainer.acceptNewAgent("ResultsCollector", resultsCollector).start();
-			//resultsCollectorAID = resultsCollector.getAID();
-		}
 		Parameters params = RunEnvironment.getInstance().getParameters();
 		buildWalls(grid, context);
 		int humanCount = (Integer) params.getValue("human_count");
@@ -66,11 +59,12 @@ public class RepastSEvacuationLauncher extends RepastSLauncher {
 		int prob = (Integer) params.getValue("propagation_prob");
 		int injuryRadius = (Integer) params.getValue("fire_injury_radius");
 		int altper = (Integer) params.getValue("altruistic_percentage");
-
+		
 		generateExits(grid,context,doorsCount);
 		createHumans(grid,context,humanCount,radiusVision,injuryRadius,altper);
 		startAccident(grid,context,0,0,prob);
-		createSecurity(grid,context,securityCount);
+		if(securityCount>0)
+			createSecurity(grid,context,securityCount);
 	}
 
 	private void createHumans(Grid<Object> grid, Context<Object> context, int humanCount, int radiusVision, int injuryRadius, int altruisticPercent){
