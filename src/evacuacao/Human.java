@@ -205,7 +205,7 @@ public class Human extends Agent {
 				ACLMessage msgSend = new ACLMessage(ACLMessage.REQUEST);
 				msgSend.addReceiver(securityAID);
 				msgSend.setContent(req.getRequest());
-				 System.out.println("SENT MESSAGE TO: "+securityAID.getLocalName() + " - " + msgSend.getContent());
+				//System.out.println("SENT MESSAGE TO: "+securityAID.getLocalName() + " - " + msgSend.getContent());
 				msgSend.setLanguage(codec.getName());
 				msgSend.setOntology(evacOntology.getName());
 				// Send message
@@ -674,7 +674,7 @@ public class Human extends Agent {
 
 	public void receiveHealing() {
 		condition = Condition.healthy;
-		System.out.println(getLocalName() + " am healthy! was saved!");
+		//System.out.println(getLocalName() + " am healthy! was saved!");
 		immunityCounter = 6;
 		got_saved++;
 	}
@@ -1105,7 +1105,7 @@ public class Human extends Agent {
 	public void trySaveVictim() {
 		if (Math.abs(myLocation().getX() - ((Human) savingVictim).getLocation().getX()) < 2
 				&& Math.abs(myLocation().getY() - ((Human) savingVictim).getLocation().getY()) < 2) {
-			System.out.println("saved " + ((Human) savingVictim).getLocalName());
+			//System.out.println("saved " + ((Human) savingVictim).getLocalName());
 			((Network<Object>) context.getProjection("Help Request Network")).removeEdge(connectionVictim);
 			((Human) savingVictim).receiveHealing();
 			if (exitX != -1 && exitY != -1) {
