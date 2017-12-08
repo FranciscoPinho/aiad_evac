@@ -234,13 +234,17 @@ public class Human extends Agent {
 						ContentElement content = getContentManager().extractContent(msg);
 						AgentAction action = (AgentAction) ((Action) content).getAction();
 						if (action instanceof RunToExit) {
+							
 							exitX = ((RunToExit) action).getX();
 							exitY = ((RunToExit) action).getY();
 							connectionSecurity = ((Network<Object>) context.getProjection("Help Request Network"))
 									.addEdge(myAgent, lookupAgent(msg.getSender()));
-							state = State.knowExit;
+							if(state!=State.helping){
+								state = State.knowExit;
+							}
 							askedCoordinates = 1;
 							gotDoorCoordinates = true;
+							
 						}
 						if (action instanceof RescueMe) {
 							if (dead == 0 && escaped == 0) {
