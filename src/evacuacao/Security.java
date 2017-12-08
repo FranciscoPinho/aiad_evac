@@ -127,24 +127,22 @@ public class Security extends Agent {
 		}
 
 		public void action() {
+			
 			ACLMessage msg = receive(template);
-
-			if (msg != null) {
-				if (msg.getContent().equals(new ExitRequest().getRequest())) {
-					// System.out.println("Received Request from
-					// "+msg.getSender().getLocalName());
-					if (closestExitX != -1 && closestExitY != -1) {
-						ACLMessage reply = msg.createReply();
-						reply.setPerformative(ACLMessage.REQUEST);
-						try {
-							getContentManager().fillContent(reply,
-									new Action(msg.getSender(), new RunToExit(closestExitX, closestExitY)));
-							send(reply);
-						} catch (Exception ex) {
-							ex.printStackTrace();
-						}
+			while(msg!=null){	
+				// System.out.println("Received Request from "+msg.getSender().getLocalName());
+				if (closestExitX != -1 && closestExitY != -1) {
+					ACLMessage reply = msg.createReply();
+					reply.setPerformative(ACLMessage.REQUEST);
+					try {
+						getContentManager().fillContent(reply,
+								new Action(msg.getSender(), new RunToExit(closestExitX, closestExitY)));
+						send(reply);
+					} catch (Exception ex) {
+						ex.printStackTrace();
 					}
 				}
+				msg = receive(template);
 			}
 		}
 

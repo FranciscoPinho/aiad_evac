@@ -98,7 +98,6 @@ public class Human extends Agent {
 		this.querybehavior = new queryDoorCoordinates(this);
 		this.receivebehavior = new receiveRequests(this);
 		addBehaviour(new movementBehaviour(this));
-		addBehaviour(querybehavior);
 		addBehaviour(receivebehavior);
 	}
 
@@ -245,7 +244,7 @@ public class Human extends Agent {
 								// GOING TO SAVE VICTIM: "
 								// + msg.getSender().getLocalName());
 								savingVictim = lookupAgent(msg.getSender());
-								if(((Human)savingVictim).getDead()==1)
+								if(((Human)savingVictim).getDead()==1 || ((Human)savingVictim).escaped==1  )
 									return;
 								connectionVictim = ((Network<Object>) context.getProjection("Help Request Network"))
 										.addEdge(myAgent, savingVictim);
@@ -1015,6 +1014,7 @@ public class Human extends Agent {
 		}
 		if (this.nextZone != currentZone && this.nextZone != Zones.nowhere) {
 			moveToZone(i, j);
+			return;
 		}
 		if (this.nextZone == Zones.nowhere) {
 
@@ -1126,7 +1126,6 @@ public class Human extends Agent {
 		if (nextPoint != null) {
 			grid.moveTo(this, (int) nextPoint.getX(), (int) nextPoint.getY());
 		} else {
-			state = State.wandering;
 			moveExplore(pt);
 		}
 		setMoved(true);
@@ -1260,6 +1259,7 @@ public class Human extends Agent {
 	}
 
 	private boolean validMovementPosition(int i, int j) {
+		boolean noWall = true;
 		if (i < 0 || j < 0)
 			return false;
 		if (i >= grid.getDimensions().getWidth())
@@ -1267,14 +1267,21 @@ public class Human extends Agent {
 		if (j >= grid.getDimensions().getHeight())
 			return false;
 		for (Object obj : grid.getObjectsAt(i, j)) {
-			if (obj instanceof Wall || obj instanceof Fire) {
+			if (obj instanceof Fire) {
 				return false;
 			}
+			if (obj instanceof Wall) {
+				noWall=false;
+			}
+			if(obj instanceof Door){
+				return true;
+			}
 		}
-		return true;
+		return noWall;
 	}
 
 	private boolean validPosition(int i, int j) {
+		boolean noWall = true;
 		if (i < 0 || j < 0)
 			return false;
 		if (i >= grid.getDimensions().getWidth())
@@ -1283,14 +1290,17 @@ public class Human extends Agent {
 			return false;
 		for (Object obj : grid.getObjectsAt(i, j)) {
 			if (obj instanceof Wall) {
-				return false;
+				noWall=false;
+			}
+			if(obj instanceof Door){
+				return true;
 			}
 		}
-		return true;
+		return noWall;
 	}
 
 	public boolean moveLeft(int i, int j) {
-		if (validPosition(i - 1, j)) {
+		if (validMovementPosition(i - 1, j)) {
 			grid.moveTo(this, i - 1, j);
 			setMoved(true);
 			return true;
@@ -1299,7 +1309,7 @@ public class Human extends Agent {
 	}
 
 	public boolean moveUp(int i, int j) {
-		if (validPosition(i, j + 1)) {
+		if (validMovementPosition(i, j + 1)) {
 			grid.moveTo(this, i, j + 1);
 			setMoved(true);
 			return true;
@@ -1308,7 +1318,7 @@ public class Human extends Agent {
 	}
 
 	public boolean moveDown(int i, int j) {
-		if (validPosition(i, j - 1)) {
+		if (validMovementPosition(i, j - 1)) {
 			grid.moveTo(this, i, j - 1);
 			setMoved(true);
 			return true;
@@ -1317,7 +1327,7 @@ public class Human extends Agent {
 	}
 
 	public boolean moveRight(int i, int j) {
-		if (validPosition(i + 1, j)) {
+		if (validMovementPosition(i + 1, j)) {
 			grid.moveTo(this, i + 1, j);
 			setMoved(true);
 			return true;

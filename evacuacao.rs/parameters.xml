@@ -16,7 +16,7 @@
 		defaultValue="3" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 	<parameter name="fire_injury_radius" displayName="Fire Injury Radius" type="int"
-		defaultValue="1" isReadOnly="false"
+		defaultValue="2" isReadOnly="false"
 		converter="repast.simphony.parameter.StringConverterFactory$IntConverter" />
 	<parameter name="propagation_prob" displayName="Propagation Probability" type="int"
 		defaultValue="25" isReadOnly="false"
