@@ -25,6 +25,8 @@ import sajas.core.behaviours.OneShotBehaviour;
 import sajas.core.behaviours.SimpleBehaviour;
 import repast.simphony.context.Context;
 import repast.simphony.engine.environment.RunEnvironment;
+import repast.simphony.query.space.grid.GridCell;
+import repast.simphony.query.space.grid.GridCellNgh;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.graph.Network;
 import repast.simphony.space.graph.RepastEdge;
@@ -127,8 +129,10 @@ public class Human extends Agent {
 
 			// lookup in visionRadius to find exit or security guard or to be
 			// burned
-			if (state != State.helping)
-				visionAndBurnDetection(myLocation());
+			if (state != State.helping){
+				vision(myLocation());
+				burnDetection(myLocation());
+			}
 
 			// if agent is injured, he has 40% chance of not moving
 			if (condition == Condition.injured) {
@@ -397,52 +401,65 @@ public class Human extends Agent {
 		Collections.reverse(potentialRescuers);
 		return potentialRescuers;
 	}
-
 	/**
 	 * Functions as agent's "vision" and physical sense detecting exits or
-	 * security guards in a radius, also detects if agent is within the radius
+	 * security guards in a radius
+	 * 
+	 * @param pt
+	 *            center of the "circle radius" where the vision
+	 *            of the agent will be processed
+	 */
+	private void vision(GridPoint pt){
+		GridCellNgh<Object> neighbourhood = new GridCellNgh<Object>(grid, myLocation(), Object.class, this.visionRadius,this.visionRadius);
+		List<GridCell<Object>> nghPoints = neighbourhood.getNeighborhood(false);
+		for (GridCell<Object> point : nghPoints) {
+			GridPoint p = point.getPoint();
+			if(withinRadius(p,this.visionRadius)  && state!=State.knowExit){
+				if (checkDoorAtLocation(p.getX(),p.getY())) {
+					exitX = p.getX();
+					exitY = p.getY();
+					state = State.knowExit;
+					return;
+				}
+				if (checkSecurityAtLocation(p.getX(), p.getY()) != null && !gotDoorCoordinates){
+					addBehaviour(querybehavior);
+				}
+			}
+		}
+	}
+	
+	private boolean withinRadius(GridPoint compare,int radius){
+		if (Math.abs(myLocation().getX() - compare.getX()) <= radius
+				&& Math.abs(myLocation().getY() - compare.getY()) <= radius)
+			return true;
+		else return false;
+	}
+
+	/**
+	 * Functions as agent's physical sense, detects if agent is within the radius
 	 * of being injured by nearby fire and updates the condition of the agent to
 	 * injured if a fire is within radius(Note:agent cannot be injured in
 	 * immunityCounter>0). If detects a wall in any of the 8 directions, it will
-	 * ignore everything beyond the wall.
+	 * ignore injures wall.
 	 * 
 	 * @param pt
-	 *            center of the "circle radius" where the vision/physical sense
+	 *            center of the "circle radius" where the physical sense
 	 *            of the agent will be processed
-	 * @return true if any exit or security agent is detected
 	 */
-	private boolean visionAndBurnDetection(GridPoint pt) {
+	private void burnDetection(GridPoint pt) {
 		int i = pt.getX();
 		int j = pt.getY();
 		boolean wallfound1 = false, wallfound2 = false, wallfound3 = false, wallfound4 = false, wallfound5 = false,
 				wallfound6 = false, wallfound7 = false, wallfound8 = false;
 
-		int highestRadius = this.fireInjuryRadius;
-		if (this.visionRadius >= this.fireInjuryRadius)
-			highestRadius = this.visionRadius;
 		if (immunityCounter > 0)
 			immunityCounter--;
-		for (int iter = 1; iter <= highestRadius; iter++) {
+		for (int iter = 1; iter <= fireInjuryRadius; iter++) {
 			if (validPosition(i, j + iter) && !wallfound1) {
-
 				if (this.fireInjuryRadius <= iter  && immunityCounter <= 0) {
 					if (checkFireAtLocation(i, j + iter))
 						condition = Condition.injured;
 				}
-
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i, j + iter)) {
-						exitX = i;
-						exitY = j + iter;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i, j + iter) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
-				}
-
 			} else
 				wallfound1 = true;
 			if (validPosition(i + iter, j + iter) && !wallfound2) {
@@ -451,58 +468,20 @@ public class Human extends Agent {
 					if (checkFireAtLocation(i + iter, j + iter))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i + iter, j + iter)) {
-						exitX = i + iter;
-						exitY = j + iter;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i + iter, j + iter) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
-				}
 
 			} else
 				wallfound2 = true;
 			if (validPosition(i + iter, j) && !wallfound3) {
-
 				if (this.fireInjuryRadius <= iter && immunityCounter <= 0) {
 					if (checkFireAtLocation(i + iter, j) )
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i + iter, j)) {
-						exitX = i + iter;
-						exitY = j;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i + iter, j) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
-				}
-
 			} else
 				wallfound3 = true;
 			if (validPosition(i, j - iter) && !wallfound4) {
 				if (this.fireInjuryRadius <= iter && immunityCounter <= 0) {
 					if (checkFireAtLocation(i, j - iter) )
 						condition = Condition.injured;
-				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i, j - iter)) {
-						exitX = i;
-						exitY = j - iter;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i, j - iter) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
 				}
 			} else
 				wallfound4 = true;
@@ -511,18 +490,6 @@ public class Human extends Agent {
 					if (checkFireAtLocation(i + iter, j - iter))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i + iter, j - iter)) {
-						exitX = i + iter;
-						exitY = j - iter;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i + iter, j - iter) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
-				}
 			} else
 				wallfound5 = true;
 			if (validPosition(i - iter, j) && !wallfound6) {
@@ -530,36 +497,13 @@ public class Human extends Agent {
 					if (checkFireAtLocation(i - iter, j))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i - iter, j)) {
-						exitX = i - iter;
-						exitY = j;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i - iter, j) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
-				}
+				
 			} else
 				wallfound6 = true;
 			if (validPosition(i - iter, j - iter) && !wallfound7) {
 				if (this.fireInjuryRadius <= iter && immunityCounter <= 0) {
 					if (checkFireAtLocation(i - iter, j - iter))
 						condition = Condition.injured;
-				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i - iter, j - iter)) {
-						exitX = i - iter;
-						exitY = j - iter;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i - iter, j - iter) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
 				}
 			} else
 				wallfound7 = true;
@@ -568,22 +512,9 @@ public class Human extends Agent {
 					if (checkFireAtLocation(i - iter, j + iter))
 						condition = Condition.injured;
 				}
-				if (this.visionRadius <= iter && state != State.knowExit) {
-					if (checkDoorAtLocation(i - iter, j + iter)) {
-						exitX = i - iter;
-						exitY = j + iter;
-						state = State.knowExit;
-						return true;
-					}
-					if (checkSecurityAtLocation(i - iter, j + iter) != null && !gotDoorCoordinates){
-						addBehaviour(querybehavior);
-						return true;
-					}
-				}
 			} else
 				wallfound8 = true;
 		}
-		return false;
 	}
 
 	/**
