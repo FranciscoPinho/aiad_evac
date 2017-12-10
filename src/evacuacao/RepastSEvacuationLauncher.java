@@ -21,7 +21,6 @@ import sajas.wrapper.ContainerController;
 import sajas.core.Runtime;
 
 public class RepastSEvacuationLauncher extends RepastSLauncher {
-	public static final boolean USE_RESULTS_COLLECTOR = true;
 	private ContainerController mainContainer;
 	private Context<Object> context;
 	private Grid<Object> grid;
